@@ -19,7 +19,7 @@ public class MouseLook : MonoBehaviour {
         lookSense = InputProvider.Instance.CurrentControlScheme == ControlScheme.KeyboardMouse ? mouseSensitivity : controllerSensitivity;
 
         // Apply sensitivity
-        lookInput *= lookSense;
+        lookInput *= lookSense * Time.deltaTime;
 
         // Accumulate rotation
         yaw += lookInput.x;
