@@ -3,6 +3,8 @@ using UnityEngine;
 [AddComponentMenu("Abilities/Slide Config")]
 public class SlideConfig : AbilityConfig<SlideAbility>
 {
+    public bool IsActive = false;
+    
     [Header("Runtime Parameters")]
     public bool HasBurst = false;
 

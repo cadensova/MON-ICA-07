@@ -3,21 +3,24 @@ using UnityEngine;
 
 public class PlayerStateMachine : MonoBehaviour
 {
-    public enum MainState { Grounded, Crouching, Airborne }
+    public enum MainState { Grounded, Crouching, WallRunning, Airborne }
     public enum SubState { Idle, Walking, Moving, Jumping, Falling, Sliding }
 
     [field: SerializeField] public MainState CurrentMain { get; private set; }
     [field: SerializeField] public SubState CurrentSub { get; private set; }
 
+
     private PlayerMovement movement;
     private bool isGrounded => movement.IsGrounded;
     private bool isCrouching => movement.IsCrouching;
     private bool isSliding => movement.IsSliding;
-    private bool IsWalking => movement.IsWalking;
+    private bool isWalking => movement.IsWalking;
     private Vector2 moveInput => movement.MoveInput;
 
+
+
     [Header("State Transitions")]
-    public float fallThreshold = -1f;
+    public float fallThreshold { get; private set; } = -1f;
     public bool JustLanded { get; private set; } = false;
 
     private void Awake()
@@ -26,11 +29,38 @@ public class PlayerStateMachine : MonoBehaviour
         SetState(MainState.Grounded, SubState.Idle);
     }
 
+    private bool Verify()
+    {
+        if (movement == null)
+        {
+            Debug.LogError("PlayerMovement component is missing.");
+            return false;
+        }
+        if (movement.abilities == null)
+        {
+            Debug.LogError("PlayerMovement.abilities is not set.");
+            return false;
+        }
+
+        return true;
+    }
+
     private void Update()
     {
-        if (movement.IsSliding)
+        if (!Verify()) return;
+
+        if (movement.abilities.IsAbilityActive("Slide"))
         {
             SetSubState(SubState.Sliding);
+
+            SetMainState(movement.IsGrounded ? MainState.Grounded : MainState.Airborne);
+            return;
+        }
+
+        if (movement.abilities.IsAbilityActive("WallRun"))
+        {
+            SetMainState(MainState.WallRunning);
+            SetSubState(moveInput.magnitude >= 0.1f ? SubState.Moving : SubState.Idle);
             return;
         }
 
@@ -43,22 +73,22 @@ public class PlayerStateMachine : MonoBehaviour
                 SetSubState(SubState.Idle);
             else if (moveInput.magnitude >= 0.1f)
             {
-                if (IsWalking)
+                if (isWalking)
                     SetSubState(SubState.Walking);
                 else
                     SetSubState(SubState.Moving);
             }
         }
-            else
-            {
-                if (CurrentMain != MainState.Airborne)
-                    SetMainState(MainState.Airborne);
+        else
+        {
+            if (CurrentMain != MainState.Airborne)
+                SetMainState(MainState.Airborne);
 
-                if (movement.GetVelocity().y > fallThreshold)
-                    SetSubState(SubState.Jumping);
-                else if (movement.GetVelocity().y <= fallThreshold)
-                    SetSubState(SubState.Falling);
-            }
+            if (movement.abilities.IsAbilityActive("Jump"))
+                SetSubState(SubState.Jumping);
+            else if (movement.GetVelocity().y <= fallThreshold)
+                SetSubState(SubState.Falling);
+        }
 
         if (JustLanded)
             JustLanded = false;

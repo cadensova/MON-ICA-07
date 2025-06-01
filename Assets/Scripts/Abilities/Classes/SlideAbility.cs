@@ -20,6 +20,12 @@ public class SlideAbility : IAbility
 
     public void Initialize(GameObject owner, Object cfg = null)
     {
+        if (Id == null || Id == "")
+        {
+            Debug.LogError("SlideAbility ID is not set.");
+            return;
+        }
+
         if (cfg is not SlideConfig slideCfg)
         {
             Debug.LogError("Missing or invalid SlideConfig for SlideAbility.");
@@ -27,7 +33,7 @@ public class SlideAbility : IAbility
         }
         config = slideCfg;
         movement = owner.GetComponent<PlayerMovement>();
-        rb = movement.GetComponent<Rigidbody>();
+        rb = movement.rb;
 
         // We listen for crouch “release” only to cancel early if needed
         movement.input.Crouch.OnReleased += Cancel;
@@ -47,6 +53,7 @@ public class SlideAbility : IAbility
 
         // Start sliding
         isSliding = true;
+        config.IsActive = true;
         slideStartTime = Time.time;
         config.HasBurst = false;
 
@@ -129,6 +136,7 @@ public class SlideAbility : IAbility
         config.HasBurst = false;
         slideStartTime = 0f;
         isSliding = false;
+        config.IsActive = false;
 
         movement.RemoveRestraint(this);
         movement.StopSlide();

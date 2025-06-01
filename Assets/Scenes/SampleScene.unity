@@ -1328,7 +1328,6 @@ MonoBehaviour:
   _Restricted: 0
   moveSpeed: 15
   airControl: 0.75
-  fallMultiplier: 2
   baseMoveMulti: 5
   walkMoveMulti: 0.5
   crouchMoveMulti: 0.25
@@ -1336,7 +1335,6 @@ MonoBehaviour:
   <IsCrouching>k__BackingField: 0
   jumpBufferGrace: 0.15
   coyoteTime: 0.15
-  lowJumpMultiplier: 2
   slideDragOverride: 0
   <IsSliding>k__BackingField: 0
   groundDrag: 5
@@ -1351,6 +1349,15 @@ MonoBehaviour:
   groundCheckDistance: 0.9
   <IsGrounded>k__BackingField: 0
   <IsOnSlope>k__BackingField: 0
+  wallLayer:
+    serializedVersion: 2
+    m_Bits: 64
+  wallCheckDistance: 1
+  wallCheckRadius: 0.5
+  wallCheckOffset: 0.35
+  <IsWallRunning>k__BackingField: 0
+  <IsTouchingWall>k__BackingField: 0
+  <wallDirection>k__BackingField: 0
   MAX_SPEED: 75
   maxAirSpeed: 0
 --- !u!114 &1220922362
@@ -1367,7 +1374,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   <CurrentMain>k__BackingField: 0
   <CurrentSub>k__BackingField: 0
-  fallThreshold: -1
 --- !u!1 &1224997715
 GameObject:
   m_ObjectHideFlags: 0
@@ -1411,6 +1417,7 @@ GameObject:
   - component: {fileID: 1232452373}
   - component: {fileID: 1232452372}
   - component: {fileID: 1232452374}
+  - component: {fileID: 1232452375}
   m_Layer: 3
   m_Name: Abilities
   m_TagString: Untagged
@@ -1445,8 +1452,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8318115145c889f44afc663c11643d99, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  IsActive: 0
   JUMP_FORCE: 15
   JUMP_COOLDOWN: 0.15
+  LOW_JUMP_MULTI: 2
+  FALL_MULTI: 2.5
 --- !u!114 &1232452373
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1471,6 +1481,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 853bf8437de6b4945831492338a04a0c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  IsActive: 0
   HasBurst: 0
   FULL_SPEED_DURATION: 0.25
   SLIDE_BURST_FORCE: 18
@@ -1481,6 +1492,22 @@ MonoBehaviour:
   SLIDE_COOLDOWN: 0.75
   SLIDE_COOLDOWN_JUMPING: 0.2
   SLIDE_TILT_AMOUNT: 8
+--- !u!114 &1232452375
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1232452370}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0278553d3645f5e4b989111bd6be5249, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  IsActive: 0
+  WALL_STICKINESS: 15
+  WALL_SLIP_SPEED: 5
+  WALL_RUN_GRACE: 0.15
 --- !u!1 &1393011516
 GameObject:
   m_ObjectHideFlags: 0

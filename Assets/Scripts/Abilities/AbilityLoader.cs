@@ -25,20 +25,20 @@ public class AbilityLoader : MonoBehaviour
             yield return new WaitUntil(() => movement.subscribed);
 
         foreach (var config in GetComponentsInChildren<IAbilityConfig>())
+        {
+            if (config is MonoBehaviour mb)
             {
-                if (config is MonoBehaviour mb)
-                {
-                    var method = config.GetType().GetMethod("SetUp");
-                    method?.Invoke(config, new object[] { transform.root.gameObject });
+                var method = config.GetType().GetMethod("SetUp");
+                method?.Invoke(config, new object[] { transform.root.gameObject });
 
-                    var abilityProp = config.GetType().GetProperty("RuntimeAbility");
-                    if (abilityProp?.GetValue(config) is IAbility ability)
-                    {
-                        loadedAbilities.Add(ability);
-                        //Debug.Log($"Loaded ability: {ability.Id} from config: {config.GetType().Name}. Does it require ticking? {ability.RequiresTicking}");
-                    }
+                var abilityProp = config.GetType().GetProperty("RuntimeAbility");
+                if (abilityProp?.GetValue(config) is IAbility ability)
+                {
+                    loadedAbilities.Add(ability);
+                    //Debug.Log($"Loaded ability: {ability.Id} from config: {config.GetType().Name}. Does it require ticking? {ability.RequiresTicking}");
                 }
             }
+        }
 
         //Debug.Log("Loaded  " + loadedAbilities.Count + "abilities.");
     }
@@ -71,5 +71,15 @@ public class AbilityLoader : MonoBehaviour
                 return typed;
         }
         return null;
+    }
+    
+    public bool IsAbilityActive(string abilityId)
+    {
+        foreach (var ability in loadedAbilities)
+        {
+            if (ability.Id == abilityId)
+                return ability.IsActive;
+        }
+        return false;
     }
 }

@@ -2,8 +2,57 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 
+public enum WallDirection
+{
+    None,
+    Left,
+    Right,
+    Forward,
+    Backward
+}
+
 public class PlayerMovement : MonoBehaviour
 {
+    private class WallHitObject
+    {
+        public RaycastHit hit;
+        public Vector3 direction;
+        public float distance;
+
+        public WallHitObject(RaycastHit hit, WallDirection direction)
+        {
+            this.hit = hit;
+
+            switch (direction)
+            {
+                case WallDirection.Left:
+                    this.direction = Vector3.left;
+                    break;
+                case WallDirection.Right:
+                    this.direction = Vector3.right;
+                    break;
+                case WallDirection.Forward:
+                    this.direction = Vector3.forward;
+                    break;
+                case WallDirection.Backward:
+                    this.direction = Vector3.back;
+                    break;
+            }
+
+            this.distance = hit.distance;
+        }
+
+        public WallDirection GetDirection()
+        {
+            if (direction == Vector3.left) return WallDirection.Left;
+            if (direction == Vector3.right) return WallDirection.Right;
+            if (direction == Vector3.forward) return WallDirection.Forward;
+            if (direction == Vector3.back) return WallDirection.Backward;
+            return WallDirection.None;
+        }
+    }
+
+
     public Vector2 MoveInput { get; private set; }
     public Vector3 MoveDirection => ori.forward * MoveInput.y + ori.right * MoveInput.x;
     [field: SerializeField] public List<object> Restraints = new List<object>();
@@ -14,12 +63,10 @@ public class PlayerMovement : MonoBehaviour
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 5f;
     [SerializeField] private float airControl = 0.5f;
-    [SerializeField] private float fallMultiplier = 2.5f;
     [SerializeField] private float baseMoveMulti = 5f;
 
 
     [Header("Modified Movement Settings")]
-    
     [SerializeField] private float walkMoveMulti = 1f;
     [SerializeField] private float crouchMoveMulti = 0.5f;
     [field: SerializeField] public bool IsWalking { get; private set; } = false;
@@ -29,16 +76,13 @@ public class PlayerMovement : MonoBehaviour
     [Header("Jump Settings")]
     [SerializeField] private float jumpBufferGrace = 0.15f;
     [SerializeField] private float coyoteTime = 0.15f;
-    [SerializeField] private float lowJumpMultiplier = 2f;
     private float bufferTimeLeft = 0f;
     private float lastTimeOnGround = 0f;
-    private bool didEarlyRelease = false;
 
 
     [Header("Slide Settings")]
     [SerializeField] private float slideDragOverride;
     [field: SerializeField] public bool IsSliding { get; private set; }
-    
 
 
     [Header("Drag Settings")]
@@ -55,12 +99,26 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float groundCheckDistance = 0.2f;
     [field: SerializeField] public bool IsGrounded { get; private set; } = false;
     [field: SerializeField] public bool IsOnSlope { get; private set; } = false;
-    [field: SerializeField] public RaycastHit groundHit { get; private set; } = new RaycastHit();
+
+
+    [Header("Wall Collision Settings")]
+    [SerializeField] private LayerMask wallLayer;
+    [SerializeField] private float wallCheckDistance = 0.5f;
+    [SerializeField] private float wallCheckRadius = 0.5f;
+    [SerializeField] private float wallCheckOffset = 0.1f;
+    [field: SerializeField] public bool IsWallRunning { get; private set; } = false;
+    [field: SerializeField] public bool IsTouchingWall { get; private set; } = false;
+    [field: SerializeField] public WallDirection wallDirection { get; private set; } = WallDirection.None;
+    private List<WallHitObject> wallHits = new List<WallHitObject>(4);
+
+
+    public RaycastHit groundHit { get; private set; } = new RaycastHit();
+    public RaycastHit wallHit { get; private set; } = new RaycastHit();
+
 
     [Header("Physics Settings")]
     [SerializeField] private float MAX_SPEED = 75f;
     [SerializeField] private float maxAirSpeed;
-
 
     // COMPONENTS
     public CapsuleCollider col { get; private set; }
@@ -71,7 +129,9 @@ public class PlayerMovement : MonoBehaviour
     public AbilityLoader abilities { get; private set; }
     public Vector3 HorizontalVelocity => new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
 
-    #region  Subscription Setup
+
+
+    #region Subscription Setup
     private Coroutine subscribeCoroutine;
 
     private void OnEnable()
@@ -136,12 +196,9 @@ public class PlayerMovement : MonoBehaviour
         subscribed = true;
     }
 
-
     private void AssignInputs()
     {
         input.Jump.OnPressed += () => bufferTimeLeft = Time.time + jumpBufferGrace;
-
-        input.Jump.OnReleased += OnJumpReleased;
 
         input.Crouch.Started += () => abilities.GetAbility<SlideAbility>()?.TryActivate();
         input.Crouch.OnReleased += () => IsCrouching = false;
@@ -151,14 +208,10 @@ public class PlayerMovement : MonoBehaviour
 
     private void Unsubscribe()
     {
-        //Could be used to unsubscribe from input events if needed
         FlowPhysics.Instance.Unregister(rb);
 
-        if (input != null)
-            input.Jump.OnReleased -= OnJumpReleased;
         subscribed = false;
     }
-
     #endregion
 
     private void Update()
@@ -187,17 +240,11 @@ public class PlayerMovement : MonoBehaviour
         if (!subscribed)
             return;
 
-        RaycastHit hit;
-        IsGrounded = Physics.SphereCast(
-            transform.position,
-            groundCheckRadius,
-            Vector3.down,
-            out hit,
-            groundCheckDistance,
-            groundLayer
-        );
-        groundHit = hit;
-        rb.useGravity = !IsGrounded;
+        DetermineCollisions();
+
+        if (!IsGrounded && IsTouchingWall)
+            abilities.GetAbility<WallRunAbility>()?.TryActivate();
+
 
         DragControl();
 
@@ -208,10 +255,66 @@ public class PlayerMovement : MonoBehaviour
         DetermineMaxSpeed();
         if (!Restricted)
             ApplyMovement();
-        
-
-        ApplyFastFallModifier();
     }
+
+
+    private void DetermineCollisions()
+    {
+        // ── Ground check (unchanged) ─────────────────────────────────────────────
+        RaycastHit tempHitGround;
+        IsGrounded = Physics.SphereCast(
+            transform.position,
+            groundCheckRadius,
+            Vector3.down,
+            out tempHitGround,
+            groundCheckDistance,
+            groundLayer
+        );
+        groundHit = tempHitGround;
+        rb.useGravity = !IsGrounded;
+
+        // ── Wall checks ────────────────────────────────────────────────────────────
+        wallHits.Clear();
+        IsTouchingWall = false;
+
+        // For each of the four WallDirection values, do one SphereCast:
+        foreach (WallDirection dir in System.Enum.GetValues(typeof(WallDirection)))
+        {
+            GetWallCastParams(dir, out Vector3 origin, out Vector3 castDir);
+
+            if (Physics.SphereCast(
+                origin,
+                wallCheckRadius,
+                castDir,
+                out RaycastHit hitInfo,
+                wallCheckDistance,
+                wallLayer))
+            {
+                wallHits.Add(new WallHitObject(hitInfo, dir));
+                IsTouchingWall = true;
+            }
+        }
+
+        // If we hit at least one wall, pick the closest:
+        if (IsTouchingWall)
+        {
+            WallHitObject closest = wallHits[0];
+            foreach (var wh in wallHits)
+            {
+                if (wh.distance < closest.distance)
+                    closest = wh;
+            }
+
+            wallHit = closest.hit;
+            wallDirection = closest.GetDirection();
+        }
+        else
+        {
+            wallHit = new RaycastHit();  
+            wallDirection = WallDirection.None;
+        }
+    }
+
 
     private void HandleToggleWalk()
     {
@@ -231,7 +334,7 @@ public class PlayerMovement : MonoBehaviour
     {
         Vector3 moveForce = Vector3.zero;
 
-        if (sm.CurrentMain == PlayerStateMachine.MainState.Grounded || 
+        if (sm.CurrentMain == PlayerStateMachine.MainState.Grounded ||
             sm.CurrentMain == PlayerStateMachine.MainState.Crouching)
         {
             float groundMulti = baseMoveMulti;
@@ -271,8 +374,8 @@ public class PlayerMovement : MonoBehaviour
         );
     }
 
-
-    private Vector3 AdjustVelocityToSlope(Vector3 velocity) {
+    private Vector3 AdjustVelocityToSlope(Vector3 velocity)
+    {
         IsOnSlope = false;
         if (groundHit.transform == null) return velocity;
 
@@ -284,7 +387,8 @@ public class PlayerMovement : MonoBehaviour
     }
 
     private float smoothDrag = 0f;
-    private void DragControl() {
+    private void DragControl()
+    {
         if (targetDrag == 0f)
         {
             rb.linearDamping = 0f;
@@ -299,49 +403,15 @@ public class PlayerMovement : MonoBehaviour
         rb.linearDamping = smoothDrag;
     }
 
-    private void OnJumpReleased()
-    {
-        // only if we're still moving up
-        if (rb.linearVelocity.y > 0f)
-        {
-            // cut that upward velocity for a low jump
-            rb.linearVelocity = new Vector3(rb.linearVelocity.x,
-                                    rb.linearVelocity.y / lowJumpMultiplier,
-                                    rb.linearVelocity.z);
-            didEarlyRelease = true;
-        }
-    }
-
-    private void ApplyFastFallModifier()
-    {
-        // when in air, already falling, and we did an early release
-        if (!IsGrounded
-            && sm.CurrentMain == PlayerStateMachine.MainState.Airborne
-            && rb.linearVelocity.y < 0f
-            && didEarlyRelease)
-        {
-            // extra downward force = (fallMultiplier – 1) × normal gravity
-            float extraG = (fallMultiplier - 1f) * FlowPhysics.Instance.GravityStrength;
-            rb.AddForce(Vector3.down * extraG, ForceMode.Acceleration);
-        }
-        // reset when back on ground
-        else if (IsGrounded && didEarlyRelease)
-        {
-            didEarlyRelease = false;
-        }
-    }
-
     public void StartSlide()
     {
         if (IsSliding) return;
-
         IsSliding = true;
     }
 
     public void StopSlide()
     {
         if (!IsSliding) return;
-
         IsSliding = false;
 
         if (input.Crouch.IsPressed)
@@ -350,9 +420,6 @@ public class PlayerMovement : MonoBehaviour
             IsCrouching = false;
     }
 
-
-    public Vector3 GetVelocity() => subscribed == true ? rb.linearVelocity : Vector3.zero;
-    
     public void AddRestraint(object restraint)
     {
         if (!Restraints.Contains(restraint))
@@ -364,17 +431,74 @@ public class PlayerMovement : MonoBehaviour
             Restraints.Remove(restraint);
     }
 
+
+    public Vector3 GetVelocity() => subscribed ? rb.linearVelocity : Vector3.zero;
+    private void GetWallCastParams(WallDirection dir, out Vector3 castOrigin, out Vector3 castDirection)
+    {
+        // Base “center” point (player’s position)
+        Vector3 center = transform.position;
+
+        switch (dir)
+        {
+            case WallDirection.Left:
+                // We want to cast LEFT (–ori.right),
+                // so we start ORIGIN slightly to the RIGHT of center:
+                castDirection = -ori.right;
+                castOrigin = center + (ori.right * wallCheckOffset);
+                break;
+
+            case WallDirection.Right:
+                // We want to cast RIGHT (+ori.right),
+                // so start ORIGIN slightly to the LEFT of center:
+                castDirection = ori.right;
+                castOrigin = center + (-ori.right * wallCheckOffset);
+                break;
+
+            case WallDirection.Forward:
+                // Cast FORWARD (+ori.forward),
+                // so start slightly BEHIND (–ori.forward):
+                castDirection = ori.forward;
+                castOrigin = center + (-ori.forward * wallCheckOffset);
+                break;
+
+            case WallDirection.Backward:
+                // Cast BACKWARD (–ori.forward),
+                // so start slightly AHEAD (+ori.forward):
+                castDirection = -ori.forward;
+                castOrigin = center + (ori.forward * wallCheckOffset);
+                break;
+
+            default:
+                // (If you add more enum values in the future—just default to “no cast.”)
+                castDirection = Vector3.zero;
+                castOrigin = center;
+                break;
+        }
+    }
+
     // Draw ground check gizmo in the editor
     private void OnDrawGizmosSelected()
     {
-        // Origin at the player's position
-        Vector3 origin = transform.position;
-
-        // Draw a line down to the check distance
+        // Draw the ground‐check gizmo (unchanged)
+        Vector3 groundOrigin = transform.position;
         Gizmos.color = Color.green;
-        Gizmos.DrawLine(origin, origin + Vector3.down * groundCheckDistance);
+        Gizmos.DrawLine(groundOrigin, groundOrigin + Vector3.down * groundCheckDistance);
+        Gizmos.DrawWireSphere(groundOrigin + Vector3.down * groundCheckDistance, groundCheckRadius);
 
-        // Draw the sphere at the end of the check
-        Gizmos.DrawWireSphere(origin + Vector3.down * groundCheckDistance, groundCheckRadius);
+        // Draw each wall‐cast start point + direction
+        foreach (WallDirection dir in System.Enum.GetValues(typeof(WallDirection)))
+        {
+            GetWallCastParams(dir, out Vector3 origin, out Vector3 castDir);
+
+            // Draw the “sphere” start position:
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawWireSphere(origin, wallCheckRadius);
+
+            // Draw the cast‐direction as a line
+            Gizmos.color = IsTouchingWall && wallDirection == dir
+                        ? Color.red    // if we’re actually touching *this* wall right now, color it red
+                        : Color.cyan;  // otherwise, just cyan
+            Gizmos.DrawLine(origin, origin + (castDir.normalized * wallCheckDistance));
+        }
     }
 }
