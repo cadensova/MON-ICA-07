@@ -358,7 +358,7 @@ Rigidbody:
   m_ImplicitTensor: 1
   m_UseGravity: 1
   m_IsKinematic: 0
-  m_Interpolate: 0
+  m_Interpolate: 1
   m_Constraints: 0
   m_CollisionDetection: 0
 --- !u!65 &217384954
@@ -1188,6 +1188,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1220922356}
+  - component: {fileID: 1220922363}
   - component: {fileID: 1220922361}
   - component: {fileID: 1220922362}
   - component: {fileID: 1220922360}
@@ -1215,7 +1216,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 832807941}
-  - {fileID: 1224997716}
   - {fileID: 1232452371}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -1346,7 +1346,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 64
   groundCheckRadius: 0.35
-  groundCheckDistance: 0.9
+  groundCheckDistance: 0.1
   <IsGrounded>k__BackingField: 0
   <IsOnSlope>k__BackingField: 0
   wallLayer:
@@ -1374,6 +1374,24 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   <CurrentMain>k__BackingField: 0
   <CurrentSub>k__BackingField: 0
+--- !u!114 &1220922363
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1220922355}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b9d28b231b244a54f969cb316812dab0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hitable:
+    serializedVersion: 2
+    m_Bits: 128
+  punchRange: 2.5
+  punchRadius: 1
+  knockbackForce: 25
 --- !u!1 &1224997715
 GameObject:
   m_ObjectHideFlags: 0
@@ -1398,12 +1416,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1224997715}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.7, z: 0}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.6999998, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1220922356}
+  m_Father: {fileID: 1831040738}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1232452370
 GameObject:
@@ -1484,14 +1502,16 @@ MonoBehaviour:
   IsActive: 0
   HasBurst: 0
   FULL_SPEED_DURATION: 0.25
-  SLIDE_BURST_FORCE: 18
-  SLIDE_REDUCE_FORCE: 25
+  BURST_FORCE: 12
+  REDUCE_FORCE: 2
   MOVEMENT_CONSERVATION_RATIO: 0.6666667
-  SLIDE_SPEED_THRESHOLD: 35
-  SLIDE_MINS_SPEED: 2
-  SLIDE_COOLDOWN: 0.75
-  SLIDE_COOLDOWN_JUMPING: 0.2
-  SLIDE_TILT_AMOUNT: 8
+  SPEED_THRESHOLD: 8
+  MINS_SPEED: 2
+  COOLDOWN: 1
+  COOLDOWN_JUMPING: 0.15
+  TILT_AMOUNT: 10
+  SHRINK_SPEED: 2
+  SLIDE_SCALE_Y: 0.5
 --- !u!114 &1232452375
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1506,8 +1526,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   IsActive: 0
   WALL_STICKINESS: 15
+  WALL_PUSH_OFF_FORCE: 5
   WALL_SLIP_SPEED: 5
   WALL_RUN_GRACE: 0.15
+  WALL_RUN_COOLDOWN: 0.5
 --- !u!1 &1393011516
 GameObject:
   m_ObjectHideFlags: 0
@@ -2020,6 +2042,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 161513214}
+  - {fileID: 1224997716}
   m_Father: {fileID: 832807941}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1860468511

@@ -7,8 +7,10 @@ public class WallRunConfig : AbilityConfig<WallRunAbility>
 
     [Header("WallRun Parameters")]
     public float WALL_STICKINESS = 0.5f;
+    public float WALL_PUSH_OFF_FORCE = 5f;
     public float WALL_SLIP_SPEED = 0.5f;
-    public float WALL_RUN_GRACE = 0.15f;
+    public float WALL_RUN_GRACE = 0.25f;
+    public float WALL_RUN_COOLDOWN = 0.5f;
 
     public override void SetUp(GameObject owner)
     {

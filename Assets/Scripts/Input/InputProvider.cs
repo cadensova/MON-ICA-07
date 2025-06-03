@@ -17,9 +17,17 @@ public class InputProvider : MonoBehaviour
     public Vector2 MoveInput { get; private set; }
     public Vector2 LookInput { get; private set; }
 
+
+    // MOVEMENT
     public SimpleButton Jump { get; private set; } = new();
     public SimpleButton Crouch { get; private set; } = new();
     public SimpleButton ToggleWalk { get; private set; } = new();
+
+
+    // COMBAT
+    public SimpleButton Slice { get; private set; } = new();
+    public SimpleButton Punch { get; private set; } = new();
+
 
     // CONSOLE / DEVELOPER INPUTS
     public SimpleButton VSyncToggle { get; private set; } = new();
@@ -45,6 +53,7 @@ public class InputProvider : MonoBehaviour
 
         playerInput = GetComponent<PlayerInput>();
         playerInput.actions.FindActionMap("Developer").Enable();
+        playerInput.actions.FindActionMap("Combat").Enable();
 
         playerInput.actions["Move"].performed += ctx =>
         {
@@ -65,9 +74,14 @@ public class InputProvider : MonoBehaviour
         playerInput.actions["Look"].canceled += ctx => LookInput = Vector2.zero;
 
 
+        // MOVEMENT
         BindAction("Jump", Jump);
         BindAction("Crouch", Crouch);
         BindAction("ToggleWalk", ToggleWalk);
+
+        // COMBAT
+        BindAction("Slice", Slice);
+        BindAction("Punch", Punch);
 
         // CONSOLE / DEVELOPER INPUTS
         BindAction("VSync", VSyncToggle);

@@ -1,5 +1,5 @@
-using Unity.Mathematics;
 using UnityEngine;
+using System.Collections;
 
 public class SlideAbility : IAbility
 {
@@ -9,6 +9,7 @@ public class SlideAbility : IAbility
 
     // References
     private Rigidbody rb;
+    private CapsuleCollider col;
     private PlayerMovement movement;
     private SlideConfig config;
 
@@ -18,9 +19,14 @@ public class SlideAbility : IAbility
     private bool isSliding = false;
     private Vector3 slideDirection;
 
+    // —— SCALING & COLLIDER FIELDS —— 
+    private Vector3 originalScale;
+    private float originalColliderHeight;
+    private Vector3 originalColliderCenter;
+
     public void Initialize(GameObject owner, Object cfg = null)
     {
-        if (Id == null || Id == "")
+        if (string.IsNullOrEmpty(Id))
         {
             Debug.LogError("SlideAbility ID is not set.");
             return;
@@ -31,24 +37,42 @@ public class SlideAbility : IAbility
             Debug.LogError("Missing or invalid SlideConfig for SlideAbility.");
             return;
         }
+
         config = slideCfg;
         movement = owner.GetComponent<PlayerMovement>();
+        if (movement == null)
+        {
+            Debug.LogError("SlideAbility needs a PlayerMovement component on the owner.");
+            return;
+        }
+
         rb = movement.rb;
+        col = movement.col;
+        if (rb == null || col == null)
+        {
+            Debug.LogError("SlideAbility: Owner is missing Rigidbody or CapsuleCollider.");
+            return;
+        }
 
-        // We listen for crouch “release” only to cancel early if needed
+        // Cache the player's original scale so we can grow back to it later
+        originalScale = movement.ori.Find("Graphics").localScale;
+
+        // Cache the capsule's original height & center
+        originalColliderHeight = col.height;
+        originalColliderCenter = col.center;
+
+        // Listen for crouch “release” to cancel slide early if needed
         movement.input.Crouch.OnReleased += Cancel;
-
-        if (rb == null || movement == null)
-            Debug.LogError("SlideAbility needs Rigidbody + PlayerMovement on the owner.");
     }
 
     public void Activate() { /* not used */ }
 
     public void TryActivate()
     {
-        // 1) Enforce cooldown
+        // Check cooldown
         if (Time.time < lastSlideTime) return;
-        // 2) Only activate if player has some movement input (so slideDirection is non‐zero)
+
+        // Need some movement input to slide
         if (movement.MoveInput.sqrMagnitude < 0.1f) return;
 
         // Start sliding
@@ -57,66 +81,113 @@ public class SlideAbility : IAbility
         slideStartTime = Time.time;
         config.HasBurst = false;
 
-        // Capture the direction the player was moving in (world‐space)
-        // Here I assume you have a Movement.MoveDirection that returns a Vector3
         slideDirection = movement.MoveDirection;
 
-        // Tell PlayerMovement to reduce drag, etc.
+        // Let PlayerMovement handle drag/etc.
         movement.StartSlide();
         movement.AddRestraint(this);
 
-        Debug.Log("Slide activated!");
+        // Shrink both scale and collider
+        movement.StartCoroutine(ChangeSize(true));
 
+        // Camera tilt
         float lean = movement.input.MoveInput.x;
-        float tiltAmount = config.SLIDE_TILT_AMOUNT * Mathf.Max(Mathf.Abs(lean), 0.35f);
+        float tiltAmount = config.TILT_AMOUNT * Mathf.Max(Mathf.Abs(lean), 0.35f);
         CameraTilt.Instance.SetTilt(tiltAmount * Mathf.Sign(lean), true);
+    }
+
+    /// <summary>
+    /// Smoothly tweens:
+    ///   • transform.localScale.y  toward (shrink → config.SLIDE_SCALE_Y) or (grow → originalScale.y)
+    ///   • col.height & col.center.y in the same proportion
+    /// at config.SHRINK_SPEED units/sec.
+    /// </summary>
+    private IEnumerator ChangeSize(bool shrinkOrGrow)
+    {
+        Transform playerT = movement.ori.Find("Graphics");
+        float startY = playerT.localScale.y;
+        float targetScaleY = shrinkOrGrow
+            ? originalScale.y * config.SLIDE_SCALE_Y
+            : originalScale.y;
+
+        float speed = config.SHRINK_SPEED; // scale-units per second
+        float fixedX = originalScale.x;
+        float fixedZ = originalScale.z;
+
+        // Cache original collider values for proportion:
+        float origHeight = originalColliderHeight;
+        float origCenterY = originalColliderCenter.y;
+
+        while (!Mathf.Approximately(startY, targetScaleY))
+        {
+            // 1) Move the player's scale.y toward the target
+            startY = Mathf.MoveTowards(startY, targetScaleY, speed * Time.deltaTime);
+            playerT.localScale = new Vector3(fixedX, startY, fixedZ);
+
+            
+            col.height = origHeight * config.SLIDE_SCALE_Y;
+            col.center = new Vector3(
+                originalColliderCenter.x,
+                origCenterY * config.SLIDE_SCALE_Y,
+                originalColliderCenter.z
+            );
+
+            yield return null;
+        }
+
+        // Snap exact final values to avoid float drift
+        playerT.localScale = new Vector3(fixedX, targetScaleY, fixedZ);
+        float finalFrac = targetScaleY / originalScale.y;
+        col.height = origHeight * finalFrac;
+        col.center = new Vector3(
+            originalColliderCenter.x,
+            originalColliderCenter.y * finalFrac,
+            originalColliderCenter.z
+        );
     }
 
     public void Tick()
     {
-        // No need to do anything here for now
+        // (nothing needed here for slide)
     }
 
     public void FixedTick()
     {
+        // Once grounded, do the redirect/burst logic exactly once
         if (!config.HasBurst && movement.IsGrounded)
         {
             config.HasBurst = true;
 
-            // Grab current velocity and separate horizontal from vertical
             Vector3 fullVel = rb.linearVelocity;
             Vector3 horizontalVel = new Vector3(fullVel.x, 0f, fullVel.z);
             float currentSpeed = horizontalVel.magnitude;
 
-            // === REDIRECT MOMENTUM ===
             Vector3 desiredDir = slideDirection.normalized;
             Vector3 redirectedVel = desiredDir * currentSpeed;
-
-            // Preserve vertical component (gravity, etc.), just swap horizontals:
             rb.linearVelocity = new Vector3(redirectedVel.x, fullVel.y, redirectedVel.z);
 
-            // === CONDITIONAL BOOST ===
-            if (currentSpeed < config.SLIDE_SPEED_THRESHOLD)
+            if (currentSpeed < config.SPEED_THRESHOLD)
             {
-                // Scale that boost so it doesn’t push you past the threshold by too much:
-                float missingSpeed = config.SLIDE_SPEED_THRESHOLD - currentSpeed;
-                float burstAmount = Mathf.Min(config.SLIDE_BURST_FORCE, missingSpeed);
+                float missingSpeed = config.SPEED_THRESHOLD - currentSpeed;
+                float burstAmount = Mathf.Min(config.BURST_FORCE, missingSpeed);
                 rb.AddForce(desiredDir * burstAmount, ForceMode.VelocityChange);
             }
-
-            //Debug.Log($"Slide landed. Redirected speed={currentSpeed:F2}. Applied burst={ (currentSpeed < config.SLIDE_SPEED_THRESHOLD ? burstAmount : 0f):F2 }");
         }
 
-        //AFTER “FULL SPEED DURATION”, start slowing down slide
+        // After the full-speed window, start applying drag
         if (slideStartTime + config.FULL_SPEED_DURATION < Time.time)
-            rb.AddForce(slideDirection * -config.SLIDE_REDUCE_FORCE, ForceMode.Acceleration);
+        {
+            rb.AddForce(slideDirection * -config.REDUCE_FORCE, ForceMode.Acceleration);
+        }
 
-        // STOP CONDITIONS
+        // STOP CONDITIONS:  
+        // 1) We're almost stopped on ground  
+        // 2) We left the ground after we already did the burst  
         bool shouldStop = false;
         Vector3 vel2 = movement.GetVelocity();
-        if (vel2.sqrMagnitude < config.SLIDE_MINS_SPEED) // almost stopped on ground
+        if (vel2.sqrMagnitude < config.MINS_SPEED) 
             shouldStop = true;
-        if (!movement.IsGrounded && config.HasBurst)    // left ground again after burst
+        if (!movement.IsGrounded && config.HasBurst)    
             shouldStop = true;
 
         if (shouldStop)
@@ -125,13 +196,11 @@ public class SlideAbility : IAbility
 
     public void Cancel()
     {
+        // Apply cooldown (longer if in mid-jump)
         if (movement.sm.CurrentSub != PlayerStateMachine.SubState.Jumping)
-            lastSlideTime = Time.time + config.SLIDE_COOLDOWN;
+            lastSlideTime = Time.time + config.COOLDOWN;
         else
-        {
-            lastSlideTime = Time.time + config.SLIDE_COOLDOWN_JUMPING;
-            Debug.Log("Slide cancelled while jumping, applying shorter cooldown.");
-        }
+            lastSlideTime = Time.time + config.COOLDOWN_JUMPING;
 
         config.HasBurst = false;
         slideStartTime = 0f;
@@ -140,6 +209,9 @@ public class SlideAbility : IAbility
 
         movement.RemoveRestraint(this);
         movement.StopSlide();
+
+        // Grow back both scale & collider
+        movement.StartCoroutine(ChangeSize(false));
 
         CameraTilt.Instance.ResetTilt();
     }

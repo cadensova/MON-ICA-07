@@ -186,8 +186,6 @@ public class PlayerMovement : MonoBehaviour
             Debug.LogError("AbilityLoader not found on PlayerMovement. Please ensure the player has an AbilityLoader component.");
             yield break;
         }
-
-        rb.useGravity = false;
         FlowPhysics.Instance.Register(rb);
 
         AssignInputs();
@@ -263,11 +261,11 @@ public class PlayerMovement : MonoBehaviour
         // ── Ground check (unchanged) ─────────────────────────────────────────────
         RaycastHit tempHitGround;
         IsGrounded = Physics.SphereCast(
-            transform.position,
+            transform.position + col.center,
             groundCheckRadius,
             Vector3.down,
             out tempHitGround,
-            groundCheckDistance,
+            col.height/2 + groundCheckDistance,
             groundLayer
         );
         groundHit = tempHitGround;
@@ -436,7 +434,7 @@ public class PlayerMovement : MonoBehaviour
     private void GetWallCastParams(WallDirection dir, out Vector3 castOrigin, out Vector3 castDirection)
     {
         // Base “center” point (player’s position)
-        Vector3 center = transform.position;
+        Vector3 center = transform.position + col.center;
 
         switch (dir)
         {
@@ -479,11 +477,13 @@ public class PlayerMovement : MonoBehaviour
     // Draw ground check gizmo in the editor
     private void OnDrawGizmosSelected()
     {
+        if (!Application.isPlaying) return;
+
         // Draw the ground‐check gizmo (unchanged)
-        Vector3 groundOrigin = transform.position;
+        Vector3 groundOrigin = transform.position + col.center;
         Gizmos.color = Color.green;
-        Gizmos.DrawLine(groundOrigin, groundOrigin + Vector3.down * groundCheckDistance);
-        Gizmos.DrawWireSphere(groundOrigin + Vector3.down * groundCheckDistance, groundCheckRadius);
+        Gizmos.DrawLine(groundOrigin, groundOrigin + Vector3.down * (col.height/2 + groundCheckDistance));
+        Gizmos.DrawWireSphere(groundOrigin + Vector3.down * (col.height/2 + groundCheckDistance), groundCheckRadius);
 
         // Draw each wall‐cast start point + direction
         foreach (WallDirection dir in System.Enum.GetValues(typeof(WallDirection)))

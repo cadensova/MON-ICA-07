@@ -12,6 +12,7 @@ public class WallRunAbility : IAbility
 
     private bool isWallRunning = false;
     private float timeLeftWall = 0f;
+    private float timeSinceLastWallRun;
 
     public void Initialize(GameObject owner, Object cfg = null)
     {
@@ -39,9 +40,11 @@ public class WallRunAbility : IAbility
     public void TryActivate()
     {
         // Try activation logic here
+        if (timeSinceLastWallRun + config.WALL_RUN_COOLDOWN > Time.time)
+            return;
 
         if (movement.IsGrounded || movement.IsCrouching || movement.IsSliding)
-            return;
+                return;
 
         if (IsNotSideWall())
             return;
@@ -67,21 +70,34 @@ public class WallRunAbility : IAbility
             return;
         }
     }
-    
+
     public void FixedTick() // Called every physics update
     {
-        //TODO: convert all of this into a force vector that we can just set the rb.linearVelocity to.
+        //TODO: make the wall run forces more consistent. should be a lot like the titan-fall wall run
 
         Vector3 dirToWall = -movement.wallHit.normal;
 
         // only apply stick as long as input is not away from the wall (Probably use movement.MoveDirection)
         // otherwise if we want to move away from the wall push off wall
-        rb.AddForce(dirToWall * config.WALL_STICKINESS, ForceMode.Force);
+
+        
+
+        float angle = Vector3.Angle(movement.MoveDirection, dirToWall);
+        //Debug.LogWarning(Mathf.Round(angle));
+
+        if (angle <= 150)
+            rb.AddForce(dirToWall * config.WALL_STICKINESS, ForceMode.Force);
+        else if (isWallRunning && movement.MoveInput != Vector2.zero)
+            Cancel();
 
         if (movement.MoveInput.y <= .25f)
         {
             rb.AddForce(FlowPhysics.Instance.GravityDirection * config.WALL_SLIP_SPEED, ForceMode.Force);
-            Debug.LogWarning("Slipping");
+            //Debug.LogWarning("Slipping");
+        }
+        else
+        {
+            rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
         }
     }
 
@@ -91,6 +107,8 @@ public class WallRunAbility : IAbility
         isWallRunning = false;
         config.IsActive = false;
         rb.useGravity = true;
+
+        timeSinceLastWallRun = Time.time;
         movement.RemoveRestraint(this);
     }
 
