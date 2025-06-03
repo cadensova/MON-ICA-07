@@ -58,6 +58,7 @@
     },
     "dotnet.defaultSolution": "MON-ICA-07.sln",
     "cSpell.words": [
+        "hitable",
         "Substate"
     ]
 }

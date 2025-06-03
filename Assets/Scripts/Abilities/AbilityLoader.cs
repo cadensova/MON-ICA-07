@@ -21,8 +21,8 @@ public class AbilityLoader : MonoBehaviour
 
     private IEnumerator LoadAbilities()
     {
-        if (!movement.subscribed)
-            yield return new WaitUntil(() => movement.subscribed);
+        if (!movement.Verified)
+            yield return new WaitUntil(() => movement.Verified);
 
         foreach (var config in GetComponentsInChildren<IAbilityConfig>())
         {

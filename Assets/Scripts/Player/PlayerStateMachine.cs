@@ -1,10 +1,11 @@
+using System.Collections;
 using Unity.VisualScripting;
 using UnityEngine;
 
 public class PlayerStateMachine : MonoBehaviour
 {
-    public enum MainState { Grounded, Crouching, WallRunning, Airborne }
-    public enum SubState { Idle, Walking, Moving, Jumping, Falling, Sliding }
+    public enum MainState { NONE, Grounded, Crouching, WallRunning, Airborne }
+    public enum SubState { NONE, Idle, Walking, Moving, Jumping, Falling, Sliding }
 
     [field: SerializeField] public MainState CurrentMain { get; private set; }
     [field: SerializeField] public SubState CurrentSub { get; private set; }
@@ -29,25 +30,9 @@ public class PlayerStateMachine : MonoBehaviour
         SetState(MainState.Grounded, SubState.Idle);
     }
 
-    private bool Verify()
-    {
-        if (movement == null)
-        {
-            Debug.LogError("PlayerMovement component is missing.");
-            return false;
-        }
-        if (movement.abilities == null)
-        {
-            Debug.LogError("PlayerMovement.abilities is not set.");
-            return false;
-        }
-
-        return true;
-    }
-
     private void Update()
     {
-        if (!Verify()) return;
+        if (!movement.Verified) return;
 
         if (movement.abilities.IsAbilityActive("Slide"))
         {

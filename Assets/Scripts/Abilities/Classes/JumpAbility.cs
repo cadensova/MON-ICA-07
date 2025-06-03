@@ -54,7 +54,7 @@ public class JumpAbility : IAbility
         rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
         rb.AddForce(Vector3.down * -config.JUMP_FORCE, ForceMode.VelocityChange);
 
-        Debug.Log("Jump activated!");
+        //Debug.Log("Jump activated!");
         lastJumpTime = Time.time + config.JUMP_COOLDOWN;
     }
 

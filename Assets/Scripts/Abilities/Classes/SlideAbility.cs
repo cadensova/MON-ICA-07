@@ -96,12 +96,7 @@ public class SlideAbility : IAbility
         CameraTilt.Instance.SetTilt(tiltAmount * Mathf.Sign(lean), true);
     }
 
-    /// <summary>
-    /// Smoothly tweens:
-    ///   • transform.localScale.y  toward (shrink → config.SLIDE_SCALE_Y) or (grow → originalScale.y)
-    ///   • col.height & col.center.y in the same proportion
-    /// at config.SHRINK_SPEED units/sec.
-    /// </summary>
+
     private IEnumerator ChangeSize(bool shrinkOrGrow)
     {
         Transform playerT = movement.ori.Find("Graphics");

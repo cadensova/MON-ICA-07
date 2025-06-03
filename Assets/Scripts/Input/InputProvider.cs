@@ -8,6 +8,15 @@ public enum ControlScheme
     Gamepad
 }
 
+public enum PlayerButton
+{
+    Jump,
+    Crouch,
+    ToggleWalk,
+    Slice,
+    Punch,
+}
+
 public class InputProvider : MonoBehaviour
 {
     public ControlScheme CurrentControlScheme { get; private set; } = ControlScheme.KeyboardMouse;
@@ -38,6 +47,21 @@ public class InputProvider : MonoBehaviour
     [Header("Deadzones")]
     [SerializeField] private float moveDeadzone = 0.1f;
     [SerializeField] private float lookDeadzone = 0.05f;
+
+
+
+    public SimpleButton GetButton(PlayerButton btn)
+    {
+        return btn switch
+        {
+            PlayerButton.Jump => Jump,
+            PlayerButton.Crouch => Crouch,
+            PlayerButton.ToggleWalk => ToggleWalk,
+            PlayerButton.Slice => Slice,
+            PlayerButton.Punch => Punch,
+            _ => null
+        };
+    }
 
 
     void Awake()

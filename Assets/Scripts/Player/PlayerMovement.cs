@@ -147,7 +147,7 @@ public class PlayerMovement : MonoBehaviour
         Unsubscribe();
     }
 
-    public bool subscribed { get; private set; } = false;
+    public bool Verified { get; private set; } = false;
     private IEnumerator SubscribeWhenReady()
     {
         // Wait for dependencies
@@ -191,7 +191,9 @@ public class PlayerMovement : MonoBehaviour
         AssignInputs();
 
         Debug.Log("PlayerMovement subscribed to input.");
-        subscribed = true;
+        Verified = true;
+
+        StopCoroutine(SubscribeWhenReady());
     }
 
     private void AssignInputs()
@@ -208,7 +210,7 @@ public class PlayerMovement : MonoBehaviour
     {
         FlowPhysics.Instance.Unregister(rb);
 
-        subscribed = false;
+        Verified = false;
     }
     #endregion
 
@@ -217,7 +219,7 @@ public class PlayerMovement : MonoBehaviour
         if (IsWalking) HandleToggleWalk();
 
         _Restricted = Restricted;
-        if (!subscribed)
+        if (!Verified)
             return;
 
         if (input != null)
@@ -235,7 +237,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (!subscribed)
+        if (!Verified)
             return;
 
         DetermineCollisions();
@@ -430,11 +432,11 @@ public class PlayerMovement : MonoBehaviour
     }
 
 
-    public Vector3 GetVelocity() => subscribed ? rb.linearVelocity : Vector3.zero;
+    public Vector3 GetVelocity() => Verified ? rb.linearVelocity : Vector3.zero;
     private void GetWallCastParams(WallDirection dir, out Vector3 castOrigin, out Vector3 castDirection)
     {
         // Base “center” point (player’s position)
-        Vector3 center = transform.position + col.center;
+            Vector3 center = transform.position + col.center;
 
         switch (dir)
         {
@@ -478,6 +480,9 @@ public class PlayerMovement : MonoBehaviour
     private void OnDrawGizmosSelected()
     {
         if (!Application.isPlaying) return;
+
+        if (!Verified)
+            return;
 
         // Draw the ground‐check gizmo (unchanged)
         Vector3 groundOrigin = transform.position + col.center;
