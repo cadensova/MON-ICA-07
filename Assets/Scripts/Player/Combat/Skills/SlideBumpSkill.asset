@@ -9,16 +9,17 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9e52711bc4c3c464ab307a20cb0effa8, type: 3}
-  m_Name: SliceSkill
+  m_Script: {fileID: 11500000, guid: 5e1f78a44a2e8564ea432657989cd2e3, type: 3}
+  m_Name: SlideBumpSkill
   m_EditorClassIdentifier: 
-  boundButton: 4
-  requiredMainState: 0
-  requiredSubState: 0
-  sliceRange: 2
-  sliceRadius: 1
-  extraForcePerStack: 15
-  velocityBurstMaxStacks: 2
-  sliceHitableLayers:
+  boundButton: 0
+  requiredMainState: 1
+  requiredSubState: 6
+  slideBumpForce: 25
+  bumpRange: 1
+  bumpRadius: 0.75
+  bumpDirection: {x: 0, y: 1, z: 0}
+  hitableLayers:
     serializedVersion: 2
     m_Bits: 128
+  <bumped>k__BackingField: []

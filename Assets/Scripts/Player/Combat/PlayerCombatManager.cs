@@ -7,6 +7,7 @@ public class PlayerCombatManager : MonoBehaviour
 {
     [Header("Assign Your Skills (ScriptableObjects)")]
     [SerializeField] private List<PlayerSkill> skills = new List<PlayerSkill>();
+    public List<PlayerSkill> Skills => skills;
 
     // COMPONENTS (same as before)
     public PlayerMovement movement { get; private set; }
@@ -16,8 +17,13 @@ public class PlayerCombatManager : MonoBehaviour
     public Transform ori { get; private set; }
     public PlayerStateMachine sm { get; private set; }
 
+
+    private SlideBumpSkill slideSkill;
+
+
     [Header("Targeting & Physics")]
     [SerializeField] private LayerMask hitable;
+    
 
     private Coroutine subscribeCoroutine;
     public bool subscribed { get; private set; } = false;
@@ -65,7 +71,11 @@ public class PlayerCombatManager : MonoBehaviour
         foreach (PlayerSkill skill in skills)
         {
             skill.Initialize(gameObject, this);
+
+            if (skill is SlideBumpSkill && slideSkill == null)
+                slideSkill = (SlideBumpSkill)skill;
         }
+        
     }
 
     private void Unsubscribe()
@@ -85,9 +95,26 @@ public class PlayerCombatManager : MonoBehaviour
         }
     }
 
+    public bool IsSkillActive(string skillToCheck)
+    {
+        var skill = skills.Find(s => s.name == skillToCheck + "Skill");
+        if (skill != null)
+            return skill.IsActive;
+
+        Debug.LogWarning("Couldn't find skill: " + skillToCheck);
+
+        return false;
+    }
+
     private void Update()
     {
         // You can put combo-window logic or animations here—
         // but the actual “meat” is in each Skill’s Execute().
+        if (!subscribed) return;
+
+        if (sm.CurrentSub == PlayerStateMachine.SubState.Sliding)
+            slideSkill?.OnExecute();
+        else if (slideSkill?.bumped.Count > 0)
+            slideSkill?.Clear();
     }
 }

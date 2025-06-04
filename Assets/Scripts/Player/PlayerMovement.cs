@@ -119,6 +119,7 @@ public class PlayerMovement : MonoBehaviour
     [Header("Physics Settings")]
     [SerializeField] private float MAX_SPEED = 75f;
     [SerializeField] private float maxAirSpeed;
+    [SerializeField] private float minAirSpeed = 15f;
 
     // COMPONENTS
     public CapsuleCollider col { get; private set; }
@@ -328,6 +329,7 @@ public class PlayerMovement : MonoBehaviour
     {
         if (IsGrounded)
             maxAirSpeed = HorizontalVelocity.magnitude;
+        maxAirSpeed = Mathf.Clamp(maxAirSpeed, minAirSpeed, MAX_SPEED);
     }
 
     private void ApplyMovement()

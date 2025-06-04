@@ -9,15 +9,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3911acf2103c0244db3dcb63af71760a, type: 3}
-  m_Name: PunchSkill
+  m_Script: {fileID: 11500000, guid: 0278553d3645f5e4b989111bd6be5249, type: 3}
+  m_Name: WallRunConfig
   m_EditorClassIdentifier: 
-  boundButton: 5
-  requiredMainState: 0
-  requiredSubState: 0
-  punchRange: 2
-  punchRadius: 1
-  baseKnockback: 5
-  hitableLayers:
-    serializedVersion: 2
-    m_Bits: 128
+  IsActive: 0
+  WALL_STICKINESS: 0.5
+  WALL_PUSH_OFF_FORCE: 5
+  WALL_SLIP_SPEED: 2
+  WALL_RUN_GRACE: 0.25
+  WALL_RUN_COOLDOWN: 0.25

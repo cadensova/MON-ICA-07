@@ -1,53 +1,87 @@
 using UnityEngine;
-using System.Collections.Generic;
 using System.Collections;
+using System.Collections.Generic;
 
 public class AbilityLoader : MonoBehaviour
 {
-    [field: SerializeField] public List<IAbility> loadedAbilities { get; private set; } = new();
+    /// <summary>
+    /// Once each config’s SetUp(...) is called at runtime, its RuntimeAbility 
+    /// will hold a fully‐initialized IAbility instance. We collect those here.
+    /// </summary>
+    [field: SerializeField]
+    public List<IAbility> loadedAbilities { get; private set; } = new();
+
     private PlayerMovement movement;
+
+    //
+    // Instead of: GetComponentsInChildren<IAbilityConfig>() (which only picks up 
+    // MonoBehaviours), we now let you drag any ScriptableObject into this list.
+    // At runtime, we check “is this object an IAbilityConfig?” and then SetUp().
+    //
+    [Header("Drag‐and‐drop your ScriptableObject configs here")]
+    [Tooltip("Anything in this list that implements IAbilityConfig (e.g. JumpConfig, SlideConfig, WallRunConfig, etc.) will be SetUp(...) at Start().")]
+    [SerializeField]
+    private List<ScriptableObject> abilityConfigObjects = new List<ScriptableObject>();
 
     private void Start()
     {
+        // Find PlayerMovement on the root (your Player GameObject):
         movement = transform.root.GetComponent<PlayerMovement>();
         if (movement == null)
         {
-            Debug.LogError("PlayerMovement component not found on root GameObject.");
+            Debug.LogError("AbilityLoader: PlayerMovement component not found on root GameObject.");
             return;
         }
 
+        // We wait until movement.Verified is true (if you’re doing any “late initialization” there):
         StartCoroutine(LoadAbilities());
     }
 
     private IEnumerator LoadAbilities()
     {
+        // If PlayerMovement.Verified is false, wait until it becomes true
         if (!movement.Verified)
             yield return new WaitUntil(() => movement.Verified);
 
-        foreach (var config in GetComponentsInChildren<IAbilityConfig>())
+        // Loop over every ScriptableObject the designer dragged into the Inspector:
+        foreach (var so in abilityConfigObjects)
         {
-            if (config is MonoBehaviour mb)
+            if (so is IAbilityConfig config)
             {
-                var method = config.GetType().GetMethod("SetUp");
-                method?.Invoke(config, new object[] { transform.root.gameObject });
+                // Call SetUp(owner), which should internally do:
+                //     RuntimeAbility = new TAbility(); 
+                //     RuntimeAbility.Initialize(owner, this);
+                config.SetUp(transform.root.gameObject);
 
-                var abilityProp = config.GetType().GetProperty("RuntimeAbility");
-                if (abilityProp?.GetValue(config) is IAbility ability)
+                // After SetUp, config.RuntimeAbility should be non‐null:
+                var runtimeProp = config.GetType().GetProperty("RuntimeAbility");
+                if (runtimeProp?.GetValue(config) is IAbility ability)
                 {
                     loadedAbilities.Add(ability);
-                    //Debug.Log($"Loaded ability: {ability.Id} from config: {config.GetType().Name}. Does it require ticking? {ability.RequiresTicking}");
+                    //Debug.Log($"Loaded ability: {ability.Id} (RequiresTicking = {ability.RequiresTicking})");
                 }
+                else
+                {
+                    Debug.LogWarning($"AbilityLoader: Config '{so.name}' did not yield a RuntimeAbility.");
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"AbilityLoader: ScriptableObject '{so.name}' does not implement IAbilityConfig, so it was skipped.");
             }
         }
 
-        //Debug.Log("Loaded  " + loadedAbilities.Count + "abilities.");
+        //Debug.Log($"AbilityLoader: Finished loading {loadedAbilities.Count} abilities.");
     }
 
     private void Update()
     {
-        foreach (var ability in loadedAbilities)
+        // Tick() only called if ability.RequiresTicking == true && ability.IsActive == true
+        for (int i = 0; i < loadedAbilities.Count; i++)
         {
-            if (!ability.RequiresTicking || !ability.IsActive) continue;
+            var ability = loadedAbilities[i];
+            if (!ability.RequiresTicking || !ability.IsActive) 
+                continue;
 
             ability.Tick();
         }
@@ -55,30 +89,39 @@ public class AbilityLoader : MonoBehaviour
 
     private void FixedUpdate()
     {
-        foreach (var ability in loadedAbilities)
+        for (int i = 0; i < loadedAbilities.Count; i++)
         {
-            if (!ability.RequiresTicking || !ability.IsActive) continue;
+            var ability = loadedAbilities[i];
+            if (!ability.RequiresTicking || !ability.IsActive) 
+                continue;
 
             ability.FixedTick();
         }
     }
 
+    /// <summary>
+    /// Returns the first loaded ability whose type matches T. 
+    /// For example: GetAbility<JumpAbility>().
+    /// </summary>
     public T GetAbility<T>() where T : class, IAbility
     {
-        foreach (var ability in loadedAbilities)
+        for (int i = 0; i < loadedAbilities.Count; i++)
         {
-            if (ability is T typed)
+            if (loadedAbilities[i] is T typed)
                 return typed;
         }
         return null;
     }
-    
+
+    /// <summary>
+    /// Returns true if an ability with the given Id is currently active.
+    /// </summary>
     public bool IsAbilityActive(string abilityId)
     {
-        foreach (var ability in loadedAbilities)
+        for (int i = 0; i < loadedAbilities.Count; i++)
         {
-            if (ability.Id == abilityId)
-                return ability.IsActive;
+            if (loadedAbilities[i].Id == abilityId)
+                return loadedAbilities[i].IsActive;
         }
         return false;
     }

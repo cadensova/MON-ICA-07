@@ -12,6 +12,7 @@ public class SlideAbility : IAbility
     private CapsuleCollider col;
     private PlayerMovement movement;
     private SlideConfig config;
+    private GroundPoundSkill gp;
 
     // Runtime
     private float slideStartTime = 0f;
@@ -48,14 +49,18 @@ public class SlideAbility : IAbility
 
         rb = movement.rb;
         col = movement.col;
+        gp = owner.GetComponent<PlayerCombatManager>().Skills.Find(skill => skill is GroundPoundSkill) as GroundPoundSkill;
         if (rb == null || col == null)
         {
             Debug.LogError("SlideAbility: Owner is missing Rigidbody or CapsuleCollider.");
             return;
         }
 
+        if (gp == null)
+            Debug.LogError("No GP skill! will skip its logic");
+
         // Cache the player's original scale so we can grow back to it later
-        originalScale = movement.ori.Find("Graphics").localScale;
+            originalScale = movement.ori.Find("Graphics").localScale;
 
         // Cache the capsule's original height & center
         originalColliderHeight = col.height;
@@ -69,6 +74,8 @@ public class SlideAbility : IAbility
 
     public void TryActivate()
     {
+        if (gp.IsActive) lastSlideTime = Time.time;
+
         // Check cooldown
         if (Time.time < lastSlideTime) return;
 

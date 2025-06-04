@@ -10,6 +10,7 @@ public enum ControlScheme
 
 public enum PlayerButton
 {
+    NONE,
     Jump,
     Crouch,
     ToggleWalk,
@@ -54,6 +55,7 @@ public class InputProvider : MonoBehaviour
     {
         return btn switch
         {
+            PlayerButton.NONE => null,
             PlayerButton.Jump => Jump,
             PlayerButton.Crouch => Crouch,
             PlayerButton.ToggleWalk => ToggleWalk,

@@ -9,16 +9,16 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9e52711bc4c3c464ab307a20cb0effa8, type: 3}
-  m_Name: SliceSkill
+  m_Script: {fileID: 11500000, guid: 79be58963e2e57845a9e0408cddf3e61, type: 3}
+  m_Name: GroundPoundSkill
   m_EditorClassIdentifier: 
-  boundButton: 4
-  requiredMainState: 0
+  boundButton: 2
+  requiredMainState: 4
   requiredSubState: 0
-  sliceRange: 2
-  sliceRadius: 1
-  extraForcePerStack: 15
-  velocityBurstMaxStacks: 2
-  sliceHitableLayers:
+  minHeight: 5
+  slamSpeed: 45
+  bounceForce: 50
+  config: {fileID: 11400000, guid: 58a193315cb434b40b27ace075d21388, type: 2}
+  groundLayer:
     serializedVersion: 2
-    m_Bits: 128
+    m_Bits: 64

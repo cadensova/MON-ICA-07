@@ -5,13 +5,14 @@ using UnityEngine;
 public class PlayerStateMachine : MonoBehaviour
 {
     public enum MainState { NONE, Grounded, Crouching, WallRunning, Airborne }
-    public enum SubState { NONE, Idle, Walking, Moving, Jumping, Falling, Sliding }
+    public enum SubState { NONE, Idle, Walking, Moving, Jumping, Falling, Sliding, GroundPounding }
 
     [field: SerializeField] public MainState CurrentMain { get; private set; }
     [field: SerializeField] public SubState CurrentSub { get; private set; }
 
 
     private PlayerMovement movement;
+    private PlayerCombatManager combat;
     private bool isGrounded => movement.IsGrounded;
     private bool isCrouching => movement.IsCrouching;
     private bool isSliding => movement.IsSliding;
@@ -27,6 +28,7 @@ public class PlayerStateMachine : MonoBehaviour
     private void Awake()
     {
         movement = GetComponent<PlayerMovement>();
+        combat = GetComponent<PlayerCombatManager>();
         SetState(MainState.Grounded, SubState.Idle);
     }
 
@@ -34,12 +36,18 @@ public class PlayerStateMachine : MonoBehaviour
     {
         if (!movement.Verified) return;
 
+        if (combat.IsSkillActive("GroundPound"))
+        {
+            SetSubState(SubState.GroundPounding);
+            return;
+        }
+
         if (movement.abilities.IsAbilityActive("Slide"))
         {
             SetSubState(SubState.Sliding);
 
-            SetMainState(movement.IsGrounded ? MainState.Grounded : MainState.Airborne);
-            return;
+            SetMainState(isGrounded ? MainState.Grounded : MainState.Airborne);
+                return;
         }
 
         if (movement.abilities.IsAbilityActive("WallRun"))

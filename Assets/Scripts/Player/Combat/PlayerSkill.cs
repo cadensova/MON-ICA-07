@@ -16,7 +16,7 @@ public abstract class PlayerSkill : ScriptableObject, IPlayerSkill
 
 
     [Header("Skill Binding & State")]
-    [SerializeField] protected PlayerButton boundButton = PlayerButton.Punch;
+    [SerializeField] protected PlayerButton boundButton = PlayerButton.NONE;
     [SerializeField] protected PlayerStateMachine.MainState requiredMainState = PlayerStateMachine.MainState.NONE;
     [SerializeField] protected PlayerStateMachine.SubState requiredSubState = PlayerStateMachine.SubState.NONE;
     private SimpleButton simpleButton;
@@ -25,11 +25,14 @@ public abstract class PlayerSkill : ScriptableObject, IPlayerSkill
     // ── PLAYER COMPONENTS ───────────────────────────────────────────
 
     protected GameObject userGO;
+    protected PlayerMovement movement;
     protected PlayerCombatManager combat;
     protected Rigidbody rb;
     protected CapsuleCollider col;
     protected Transform ori;
     protected PlayerStateMachine sm;
+
+    public bool IsActive { get; protected set; } = false;
 
 
     // ── INITIALIZATION ────────────────────────────────────────────────────
@@ -41,6 +44,7 @@ public abstract class PlayerSkill : ScriptableObject, IPlayerSkill
     {
         userGO = _user;
         combat = _combat;
+        movement = _user.GetComponent<PlayerMovement>();
         sm = _combat.sm;
         rb = _combat.rb;
         col = _combat.col;
@@ -48,17 +52,20 @@ public abstract class PlayerSkill : ScriptableObject, IPlayerSkill
 
         if (sm == null || rb == null || col == null || ori == null)
         {
-            Debug.LogWarning("AHHHHHH");
+            Debug.LogWarning("Player skill failed! " + name);
         }
 
-        simpleButton = InputProvider.Instance.GetButton(boundButton);
-        if (simpleButton == null)
+        if (boundButton != PlayerButton.NONE)
         {
-            Debug.LogWarning($"[{name}] couldn’t find SimpleButton for {boundButton}. Skill will never fire.");
-        }
-        else
-        {
-            simpleButton.OnPressed += TryUseSkill;
+            simpleButton = InputProvider.Instance.GetButton(boundButton);
+            if (simpleButton == null)
+            {
+                Debug.LogWarning($"[{name}] couldn’t find SimpleButton for {boundButton}. Skill will never fire.");
+            }
+            else
+            {
+                simpleButton.OnPressed += TryUseSkill;
+            }
         }
 
         OnInitialize();
