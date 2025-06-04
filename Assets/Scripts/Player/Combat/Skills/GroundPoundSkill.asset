@@ -17,8 +17,9 @@ MonoBehaviour:
   requiredSubState: 0
   minHeight: 5
   slamSpeed: 45
-  bounceForce: 50
+  bounceForce: 10
   config: {fileID: 11400000, guid: 58a193315cb434b40b27ace075d21388, type: 2}
   groundLayer:
     serializedVersion: 2
     m_Bits: 64
+  maxBounceMultiplier: 3

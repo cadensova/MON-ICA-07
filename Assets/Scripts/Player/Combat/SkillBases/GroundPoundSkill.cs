@@ -5,32 +5,42 @@ using System.Collections;
 public class GroundPoundSkill : PlayerSkill
 {
     [Header("GP Settings")]
-    [SerializeField] private float minHeight = 5f;
-    [SerializeField] private float slamSpeed = 15f;
-    [SerializeField] private float bounceForce = 50f;
+    [SerializeField] private float minHeight    = 5f;
+    [SerializeField] private float slamSpeed    = 15f;
+    [SerializeField] private float bounceForce  = 50f;
     [SerializeField] private JumpConfig config;
     [SerializeField] private LayerMask groundLayer;
 
-    private bool subbedToPressed = false;
-    private bool didEarlyRelease = false;
-    private bool wantsToJump = false;
-    private bool bouncing = false;
+    // You might optionally cap how many times minHeight is allowed:
+    [Header("Optional Bounce Cap")]
+    [Tooltip("If you fall more than (maxBounceMultiplier × minHeight), your bounce will be clamped.")]
+    [SerializeField] private float maxBounceMultiplier = 3f;
+
+    private bool  subbedToPressed = false;
+    private bool  didEarlyRelease = false;
+    private bool  wantsToJump = false;
+    private bool  bouncing = false;
+
+    // This holds the distance from your feet to ground at the moment you start the slam.
+    private float disToGround;
 
     public override void OnExecute()
     {
-        if (col == null || IsActive) return;
+        if (col == null || IsActive) 
+            return;
 
-        // Raycast down from bottom of collider, not its center
+        // Raycast down from bottom of collider, not its center:
         Vector3 rayOrigin = userGO.transform.position + Vector3.up * (col.bounds.extents.y);
         if (!Physics.Raycast(rayOrigin, FlowPhysics.Instance.GravityDirection, out RaycastHit hit, 250f, groundLayer))
         {
-            // No ground found (too far or invalid), so bail
+            // No valid ground within 250m
             return;
         }
 
-        float distToGround = Vector3.Distance(rayOrigin, hit.point);
-        if (distToGround < minHeight)
-            return; // not high enough
+        // Record how far your feet were from the ground when you initiated the ground pound
+        disToGround = Vector3.Distance(rayOrigin, hit.point);
+        if (disToGround < minHeight)
+            return; // not high enough to ground pound
 
         StartGroundPound();
     }
@@ -40,16 +50,16 @@ public class GroundPoundSkill : PlayerSkill
         IsActive = true;
         movement.AddRestraint(this);
 
-        // Zero vertical velocity, then slam down
+        // Zero vertical velocity, then slam down immediately:
         rb.linearVelocity = Vector3.zero;
         rb.AddForce(FlowPhysics.Instance.GravityDirection * slamSpeed, ForceMode.VelocityChange);
 
-        // Subscribe to Jump Press so we can track a bounce request
+        // Subscribe to Jump.OnPressed so we can trigger a bounce if they tap at impact:
         if (!subbedToPressed)
         {
             InputProvider.Instance.Jump.OnPressed += WantsToJump;
             subbedToPressed = true;
-            wantsToJump = false; 
+            wantsToJump     = false;
         }
 
         movement.StartCoroutine(GroundPoundRoutine());
@@ -57,38 +67,43 @@ public class GroundPoundSkill : PlayerSkill
 
     private IEnumerator GroundPoundRoutine()
     {
-        // 1) Wait until we hit ground
+        // 1) Wait for the moment we actually hit the ground
         yield return new WaitUntil(() => movement.IsGrounded);
 
-        // 2) Unsubscribe the "pressed" listener
+        // 2) Unsubscribe the "pressed" listener so we don't handle extra presses later
         InputProvider.Instance.Jump.OnPressed -= WantsToJump;
         subbedToPressed = false;
 
-        // 3) Reset the initial slam restraint (we’re on the ground)
+        // 3) We have landed: remove the slam restraint (we’re on the ground now).
+        //    (Do NOT clear disToGround yet, because we need it to compute bounce.)
         ResetPound(full: false);
 
-        // 4) If player tapped jump exactly at landing, do a bounce
+        // 4) If the player tapped Jump exactly at the landing frame, do a bounce:
         if (wantsToJump)
         {
             rb.linearVelocity = Vector3.zero;
-            rb.AddForce(-FlowPhysics.Instance.GravityDirection * bounceForce, ForceMode.Impulse);
-            wantsToJump = false;
-            bouncing = true;
 
-            // Subscribe to OnReleased so we can do fast-fall if they let go too quickly
+            // Compute a bounce force proportional to how far we fell:
+            float dynamicForce = GetBounceForceForDistance(disToGround);
+            rb.AddForce(-FlowPhysics.Instance.GravityDirection * dynamicForce, ForceMode.Impulse);
+
+            wantsToJump = false;
+            bouncing    = true;
+
+            // Now subscribe to Jump.OnReleased so we can do "low jump" / fast fall if they let go early
             InputProvider.Instance.Jump.OnReleased += CancelEarly;
         }
 
-        // 5) If they did an early release mid-bounce, apply a fast-fall
+        // 5) If they did an early‐release mid‐bounce, apply a fast‐fall:
         if (didEarlyRelease)
         {
             ApplyFastFallModifier();
         }
 
-        // 6) Wait until the bounce is completely done
+        // 6) Wait until the bounce is fully over (bouncing is set to false by your controller when they land again)
         yield return new WaitUntil(() => !bouncing);
 
-        // 7) Final cleanup: remove bounce listener and fully reset
+        // 7) Unsubscribe OnReleased, then reset everything fully (including clearing disToGround)
         InputProvider.Instance.Jump.OnReleased -= CancelEarly;
         ResetPound(full: true);
     }
@@ -100,11 +115,12 @@ public class GroundPoundSkill : PlayerSkill
 
     private void CancelEarly()
     {
-        if (!bouncing) return;
+        if (!bouncing) 
+            return;
 
+        // If we’re still moving upward, apply the low‐jump multiplier
         if (rb.linearVelocity.y > 0f)
         {
-            // cut that upward velocity for a “low jump” effect
             rb.linearVelocity = new Vector3(
                 rb.linearVelocity.x,
                 rb.linearVelocity.y / config.LOW_JUMP_MULTI,
@@ -116,7 +132,7 @@ public class GroundPoundSkill : PlayerSkill
 
     private void ApplyFastFallModifier()
     {
-        // only apply if still airborne and currently falling
+        // Only apply if we’re still in the air, falling, and had an early release
         if (!movement.IsGrounded
             && movement.sm.CurrentMain == PlayerStateMachine.MainState.Airborne
             && rb.linearVelocity.y < 0f)
@@ -127,7 +143,7 @@ public class GroundPoundSkill : PlayerSkill
     }
 
     /// <summary>
-    /// Resets IsActive and removes restraint. If 'full' is true, also clear bounce flags and early-release flag.
+    /// Resets IsActive and removes restraint. If 'full' is true, also clears bounce flags, didEarlyRelease, wantsToJump, and disToGround.
     /// </summary>
     private void ResetPound(bool full = false)
     {
@@ -137,8 +153,28 @@ public class GroundPoundSkill : PlayerSkill
         if (full)
         {
             didEarlyRelease = false;
-            bouncing = false;
-            wantsToJump = false;
+            bouncing        = false;
+            wantsToJump      = false;
+            disToGround      = 0f;
         }
+    }
+
+    /// <summary>
+    /// Returns a bounce‐force based on how far the player fell (disToGround).
+    /// Right now, we simply do: base bounceForce × (disToGround / minHeight), clamped by maxBounceMultiplier.
+    /// </summary>
+    private float GetBounceForceForDistance(float fallDistance)
+    {
+        // Prevent division by zero, just in case:
+        if (minHeight <= 0f) 
+            return bounceForce;
+
+        // Scale factor: 1 when fallDistance == minHeight, >1 when you fell farther
+        float rawMultiplier = fallDistance / minHeight;
+
+        // Optionally clamp so it never bounces more than X × base:
+        float clampedMultiplier = Mathf.Clamp(rawMultiplier, 1f, maxBounceMultiplier);
+
+        return bounceForce * clampedMultiplier;
     }
 }
