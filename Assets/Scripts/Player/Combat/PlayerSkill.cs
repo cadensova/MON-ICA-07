@@ -19,7 +19,7 @@ public abstract class PlayerSkill : ScriptableObject, IPlayerSkill
     [SerializeField] protected PlayerButton boundButton = PlayerButton.NONE;
     [SerializeField] protected PlayerStateMachine.MainState requiredMainState = PlayerStateMachine.MainState.NONE;
     [SerializeField] protected PlayerStateMachine.SubState requiredSubState = PlayerStateMachine.SubState.NONE;
-    private SimpleButton simpleButton;
+    protected SimpleButton skillInputButton;
     
 
     // ── PLAYER COMPONENTS ───────────────────────────────────────────
@@ -57,14 +57,14 @@ public abstract class PlayerSkill : ScriptableObject, IPlayerSkill
 
         if (boundButton != PlayerButton.NONE)
         {
-            simpleButton = InputProvider.Instance.GetButton(boundButton);
-            if (simpleButton == null)
+            skillInputButton = InputProvider.Instance.GetButton(boundButton);
+            if (skillInputButton == null)
             {
                 Debug.LogWarning($"[{name}] couldn’t find SimpleButton for {boundButton}. Skill will never fire.");
             }
             else
             {
-                simpleButton.OnPressed += TryUseSkill;
+                skillInputButton.OnPressed += TryUseSkill;
             }
         }
 
@@ -75,8 +75,8 @@ public abstract class PlayerSkill : ScriptableObject, IPlayerSkill
     protected virtual void OnInitialize() { }
     public void Uninitialize()
     {
-        if (simpleButton != null)
-            simpleButton.OnPressed -= TryUseSkill;
+        if (skillInputButton != null)
+            skillInputButton.OnPressed -= TryUseSkill;
     }
 
 

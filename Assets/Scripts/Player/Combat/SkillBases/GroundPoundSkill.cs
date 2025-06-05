@@ -59,7 +59,7 @@ public class GroundPoundSkill : PlayerSkill
         {
             InputProvider.Instance.Jump.OnPressed += WantsToJump;
             subbedToPressed = true;
-            wantsToJump     = false;
+            wantsToJump = false;
         }
 
         movement.StartCoroutine(GroundPoundRoutine());
@@ -88,7 +88,7 @@ public class GroundPoundSkill : PlayerSkill
             rb.AddForce(-FlowPhysics.Instance.GravityDirection * dynamicForce, ForceMode.Impulse);
 
             wantsToJump = false;
-            bouncing    = true;
+            bouncing = true;
 
             // Now subscribe to Jump.OnReleased so we can do "low jump" / fast fall if they let go early
             InputProvider.Instance.Jump.OnReleased += CancelEarly;

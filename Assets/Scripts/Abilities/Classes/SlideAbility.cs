@@ -74,7 +74,7 @@ public class SlideAbility : IAbility
 
     public void TryActivate()
     {
-        if (gp.IsActive) lastSlideTime = Time.time;
+        if (movement.Restricted) lastSlideTime = Time.time;
 
         // Check cooldown
         if (Time.time < lastSlideTime) return;
@@ -99,7 +99,7 @@ public class SlideAbility : IAbility
 
         // Camera tilt
         float lean = movement.input.MoveInput.x;
-        float tiltAmount = config.TILT_AMOUNT * Mathf.Max(Mathf.Abs(lean), 0.35f);
+        float tiltAmount = config.TILT_AMOUNT * Mathf.Max(Mathf.Abs(lean), 0.6f);
         CameraTilt.Instance.SetTilt(tiltAmount * Mathf.Sign(lean), true);
     }
 

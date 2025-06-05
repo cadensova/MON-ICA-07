@@ -253,6 +253,9 @@ public class PlayerMovement : MonoBehaviour
             ? slideDragOverride
             : (IsGrounded ? groundDrag : airDrag);
 
+        if (sm.CurrentSub == PlayerStateMachine.SubState.Dashing)
+            targetDrag = 0f;
+
         DetermineMaxSpeed();
         if (!Restricted)
             ApplyMovement();

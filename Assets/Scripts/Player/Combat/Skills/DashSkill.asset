@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5846a1550503a644f82c5e85933aaf33, type: 3}
+  m_Name: DashSkill
+  m_EditorClassIdentifier: 
+  boundButton: 6
+  requiredMainState: 0
+  requiredSubState: 0
+  dashSpeed: 75
+  knockbackForce: 25
+  dashCooldown: 0.5
+  dashDetectRange: 25
+  dashDetectRadius: 1
+  detectionMask:
+    serializedVersion: 2
+    m_Bits: 128
+  minDis: 2

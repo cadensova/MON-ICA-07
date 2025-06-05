@@ -5,7 +5,7 @@ using UnityEngine;
 public class PlayerStateMachine : MonoBehaviour
 {
     public enum MainState { NONE, Grounded, Crouching, WallRunning, Airborne }
-    public enum SubState { NONE, Idle, Walking, Moving, Jumping, Falling, Sliding, GroundPounding }
+    public enum SubState { NONE, Idle, Walking, Moving, Jumping, Falling, Sliding, GroundPounding, Dashing }
 
     [field: SerializeField] public MainState CurrentMain { get; private set; }
     [field: SerializeField] public SubState CurrentSub { get; private set; }
@@ -41,13 +41,19 @@ public class PlayerStateMachine : MonoBehaviour
             SetSubState(SubState.GroundPounding);
             return;
         }
+        
+        if (combat.IsSkillActive("Dash"))
+        {
+            SetSubState(SubState.Dashing);
+            return;
+        }
 
         if (movement.abilities.IsAbilityActive("Slide"))
         {
             SetSubState(SubState.Sliding);
 
             SetMainState(isGrounded ? MainState.Grounded : MainState.Airborne);
-                return;
+            return;
         }
 
         if (movement.abilities.IsAbilityActive("WallRun"))

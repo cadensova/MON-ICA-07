@@ -1,11 +1,12 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.UI;
 
 
 public class PlayerCombatManager : MonoBehaviour
 {
-    [Header("Assign Your Skills (ScriptableObjects)")]
+    [Header("Assign Skills")]
     [SerializeField] private List<PlayerSkill> skills = new List<PlayerSkill>();
     public List<PlayerSkill> Skills => skills;
 
@@ -19,12 +20,17 @@ public class PlayerCombatManager : MonoBehaviour
 
 
     private SlideBumpSkill slideSkill;
+    private DashSkill dashSkill;
 
 
     [Header("Targeting & Physics")]
     [SerializeField] private LayerMask hitable;
-    
 
+
+    [Header("UI Elements")]
+    [field: SerializeField] public RawImage defaultCross { get; private set; }
+    [field: SerializeField] public RawImage targetingCross { get; private set; }
+ 
     private Coroutine subscribeCoroutine;
     public bool subscribed { get; private set; } = false;
 
@@ -73,7 +79,10 @@ public class PlayerCombatManager : MonoBehaviour
             skill.Initialize(gameObject, this);
 
             if (skill is SlideBumpSkill && slideSkill == null)
-                slideSkill = (SlideBumpSkill)skill;
+                slideSkill = skill as SlideBumpSkill;
+
+            if (skill is DashSkill && dashSkill == null)
+                dashSkill = skill as DashSkill;
         }
         
     }
@@ -116,5 +125,7 @@ public class PlayerCombatManager : MonoBehaviour
             slideSkill?.OnExecute();
         else if (slideSkill?.bumped.Count > 0)
             slideSkill?.Clear();
+
+        dashSkill?.OnExecute();
     }
 }

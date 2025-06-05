@@ -16,6 +16,7 @@ public enum PlayerButton
     ToggleWalk,
     Slice,
     Punch,
+    Dash,
 }
 
 public class InputProvider : MonoBehaviour
@@ -37,6 +38,7 @@ public class InputProvider : MonoBehaviour
     // COMBAT
     public SimpleButton Slice { get; private set; } = new();
     public SimpleButton Punch { get; private set; } = new();
+    public SimpleButton Dash { get; private set; } = new();
 
 
     // CONSOLE / DEVELOPER INPUTS
@@ -61,6 +63,7 @@ public class InputProvider : MonoBehaviour
             PlayerButton.ToggleWalk => ToggleWalk,
             PlayerButton.Slice => Slice,
             PlayerButton.Punch => Punch,
+            PlayerButton.Dash => Dash,
             _ => null
         };
     }
@@ -108,6 +111,7 @@ public class InputProvider : MonoBehaviour
         // COMBAT
         BindAction("Slice", Slice);
         BindAction("Punch", Punch);
+        BindAction("Dash", Dash);
 
         // CONSOLE / DEVELOPER INPUTS
         BindAction("VSync", VSyncToggle);
