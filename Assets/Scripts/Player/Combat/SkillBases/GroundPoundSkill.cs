@@ -5,9 +5,10 @@ using System.Collections;
 public class GroundPoundSkill : PlayerSkill
 {
     [Header("GP Settings")]
-    [SerializeField] private float minHeight    = 5f;
-    [SerializeField] private float slamSpeed    = 15f;
-    [SerializeField] private float bounceForce  = 50f;
+    [SerializeField] private float minHeight = 5f;
+    [SerializeField] private float slamSpeed = 15f;
+    [SerializeField] private float bounceUpwardsForce = 50f;
+    [SerializeField] private float bounceMovementForce = 50f;
     [SerializeField] private JumpConfig config;
     [SerializeField] private LayerMask groundLayer;
 
@@ -16,10 +17,9 @@ public class GroundPoundSkill : PlayerSkill
     [Tooltip("If you fall more than (maxBounceMultiplier × minHeight), your bounce will be clamped.")]
     [SerializeField] private float maxBounceMultiplier = 3f;
 
-    private bool  subbedToPressed = false;
-    private bool  didEarlyRelease = false;
-    private bool  wantsToJump = false;
-    private bool  bouncing = false;
+    private bool subbedToPressed = false;
+    private bool wantsToJump = false;
+    private bool bouncing = false;
 
     // This holds the distance from your feet to ground at the moment you start the slam.
     private float disToGround;
@@ -83,63 +83,23 @@ public class GroundPoundSkill : PlayerSkill
         {
             rb.linearVelocity = Vector3.zero;
 
-            // Compute a bounce force proportional to how far we fell:
-            float dynamicForce = GetBounceForceForDistance(disToGround);
-            rb.AddForce(-FlowPhysics.Instance.GravityDirection * dynamicForce, ForceMode.Impulse);
+            Vector3 bounceDir = movement.MoveDirection.normalized * bounceMovementForce + FlowPhysics.Instance.GravityDirection.normalized * -bounceUpwardsForce;
+            rb.AddForce(bounceDir, ForceMode.Impulse);
 
             wantsToJump = false;
             bouncing = true;
 
-            // Now subscribe to Jump.OnReleased so we can do "low jump" / fast fall if they let go early
-            InputProvider.Instance.Jump.OnReleased += CancelEarly;
-        }
-
-        // 5) If they did an early‐release mid‐bounce, apply a fast‐fall:
-        if (didEarlyRelease)
-        {
-            ApplyFastFallModifier();
+            movement.SetMaxSpeed((movement.MoveDirection.normalized.magnitude * bounceMovementForce) + movement.HorizontalVelocity.magnitude);
         }
 
         // 6) Wait until the bounce is fully over (bouncing is set to false by your controller when they land again)
         yield return new WaitUntil(() => !bouncing);
-
-        // 7) Unsubscribe OnReleased, then reset everything fully (including clearing disToGround)
-        InputProvider.Instance.Jump.OnReleased -= CancelEarly;
         ResetPound(full: true);
     }
 
     private void WantsToJump()
     {
         wantsToJump = true;
-    }
-
-    private void CancelEarly()
-    {
-        if (!bouncing) 
-            return;
-
-        // If we’re still moving upward, apply the low‐jump multiplier
-        if (rb.linearVelocity.y > 0f)
-        {
-            rb.linearVelocity = new Vector3(
-                rb.linearVelocity.x,
-                rb.linearVelocity.y / config.LOW_JUMP_MULTI,
-                rb.linearVelocity.z
-            );
-            didEarlyRelease = true;
-        }
-    }
-
-    private void ApplyFastFallModifier()
-    {
-        // Only apply if we’re still in the air, falling, and had an early release
-        if (!movement.IsGrounded
-            && movement.sm.CurrentMain == PlayerStateMachine.MainState.Airborne
-            && rb.linearVelocity.y < 0f)
-        {
-            float extraG = (config.FALL_MULTI - 1f) * FlowPhysics.Instance.GravityStrength;
-            rb.AddForce(Vector3.down * extraG, ForceMode.Acceleration);
-        }
     }
 
     /// <summary>
@@ -152,10 +112,9 @@ public class GroundPoundSkill : PlayerSkill
 
         if (full)
         {
-            didEarlyRelease = false;
-            bouncing        = false;
-            wantsToJump      = false;
-            disToGround      = 0f;
+            bouncing = false;
+            wantsToJump = false;
+            disToGround = 0f;
         }
     }
 
@@ -167,7 +126,7 @@ public class GroundPoundSkill : PlayerSkill
     {
         // Prevent division by zero, just in case:
         if (minHeight <= 0f) 
-            return bounceForce;
+            return bounceUpwardsForce;
 
         // Scale factor: 1 when fallDistance == minHeight, >1 when you fell farther
         float rawMultiplier = fallDistance / minHeight;
@@ -175,6 +134,6 @@ public class GroundPoundSkill : PlayerSkill
         // Optionally clamp so it never bounces more than X × base:
         float clampedMultiplier = Mathf.Clamp(rawMultiplier, 1f, maxBounceMultiplier);
 
-        return bounceForce * clampedMultiplier;
+        return bounceUpwardsForce * clampedMultiplier;
     }
 }

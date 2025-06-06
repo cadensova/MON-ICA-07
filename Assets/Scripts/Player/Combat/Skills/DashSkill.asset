@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: DashSkill
   m_EditorClassIdentifier: 
   boundButton: 6
-  requiredMainState: 0
+  requiredMainState: 4
   requiredSubState: 0
   dashSpeed: 75
   knockbackForce: 25
@@ -24,3 +24,4 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 128
   minDis: 2
+  jumpForce: 25

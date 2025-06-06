@@ -1654,8 +1654,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _Restricted: 0
-  moveSpeed: 15
+  moveSpeed: 20
   airControl: 0.75
+  airAccel: 15
   baseMoveMulti: 5
   walkMoveMulti: 0.5
   crouchMoveMulti: 0.25
@@ -1665,11 +1666,11 @@ MonoBehaviour:
   coyoteTime: 0.15
   slideDragOverride: 0
   <IsSliding>k__BackingField: 0
-  groundDrag: 5
+  groundDrag: 6
   airDrag: 0
   dragAccel: 6
   dragDecel: 10
-  targetDrag: 0
+  targetDrag: 5
   groundLayer:
     serializedVersion: 2
     m_Bits: 64
@@ -1687,7 +1688,7 @@ MonoBehaviour:
   <IsTouchingWall>k__BackingField: 0
   <wallDirection>k__BackingField: 0
   MAX_SPEED: 75
-  maxAirSpeed: 0
+  maxAirSpeed: 15
   minAirSpeed: 15
 --- !u!114 &1220922362
 MonoBehaviour:

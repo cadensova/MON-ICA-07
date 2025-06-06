@@ -14,106 +14,143 @@ public class WallRunAbility : IAbility
     private float timeLeftWall = 0f;
     private float timeSinceLastWallRun;
 
+    // Called once at startup:
     public void Initialize(GameObject owner, Object cfg = null)
     {
-        if (Id == null || Id == "")
-        {
-            Debug.LogError("WallRunAbility ID is not set.");
-            return;
-        }
-
         if (cfg is not WallRunConfig wallCfg)
         {
-            Debug.LogError("Missing or invalid WallRunConfig for WallRunAbility.");
+            Debug.LogError("WallRunAbility: need WallRunConfig!");
             return;
         }
         config = wallCfg;
-        movement = owner.GetComponent<PlayerMovement>();
-        rb = movement.rb;
 
-        if (rb == null || movement == null)
-            Debug.LogError("WallRunAbility needs Rigidbody + PlayerMovement on the owner.");
+        movement = owner.GetComponent<PlayerMovement>();
+        if (movement == null)
+        {
+            Debug.LogError($"WallRunAbility: {owner.name} is missing PlayerMovement!");
+            return;
+        }
+
+        rb = movement.rb;
+        if (rb == null)
+        {
+            Debug.LogError($"WallRunAbility: {owner.name}'s PlayerMovement is missing Rigidbody!");
+            return;
+        }
+
+        // So that first activation isn't blocked:
+        timeSinceLastWallRun = Time.time - config.WALL_RUN_COOLDOWN;
     }
 
+    // Not used by this script but is needed to fit IAbility
     public void Activate() { }
 
+    // Called by input handler when player presses “wall run” button:
     public void TryActivate()
     {
-        // Try activation logic here
-        if (timeSinceLastWallRun + config.WALL_RUN_COOLDOWN > Time.time)
+        // 1) Check cooldown:
+        if (Time.time < timeSinceLastWallRun + config.WALL_RUN_COOLDOWN)
             return;
 
-        if (movement.IsGrounded || movement.IsCrouching || movement.IsSliding)
-                return;
-
-        if (IsNotSideWall())
+        // 2) Only allow if not on ground/sliding/dashing:
+        if (movement.sm.CurrentMain == PlayerStateMachine.MainState.Grounded ||
+            movement.sm.CurrentSub == PlayerStateMachine.SubState.Sliding ||
+            movement.sm.CurrentSub == PlayerStateMachine.SubState.Dashing)
             return;
 
+        // 3) Must be touching a valid side wall AND pushing into it:
+        if (!IsFacingWall())
+            return;
+
+        // 4) Activate wall-run:
         isWallRunning = true;
         config.IsActive = true;
+        timeLeftWall = 0f;              // reset any previous grace
         rb.useGravity = false;
 
+        // Stop vertical momentum:
+        Vector3 v = rb.linearVelocity;
+        rb.AddForce(movement.MoveDirection * config.Wall_BOOST);
+        rb.linearVelocity = new Vector3(v.x, 0f, v.z);
+
         movement.AddRestraint(this);
-        rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+
+        // Tilt camera toward the wall:
+        float leanDir = (movement.wallDirection == WallDirection.Right) ? +1f : -1f;
+        CameraTilt.Instance.SetTilt(config.TILT_AMOUNT * leanDir, true);
     }
 
-    public void Tick()  // Called every frame
+    // Called every frame:
+    public void Tick()
     {
-        if (IsNotSideWall())
+        // If we’re no longer on a valid face of a side wall, start counting grace:
+        if (!IsFacingWall())
             timeLeftWall += Time.deltaTime;
         else
             timeLeftWall = 0f;
 
+        // If we exceed the grace window, cancel:
         if (timeLeftWall > config.WALL_RUN_GRACE)
         {
+            //Debug.LogError("Left the wall!");
             Cancel();
-            return;
         }
     }
 
-    public void FixedTick() // Called every physics update
+    // Called every FixedUpdate:
+    public void FixedTick()
     {
-        //TODO: make the wall run forces more consistent. should be a lot like the titan-fall wall run
-
+        // 1) Apply stickiness force (press them into the wall)
         Vector3 dirToWall = -movement.wallHit.normal;
+        rb.AddForce(dirToWall * config.WALL_STICKINESS, ForceMode.Force);
 
-        // only apply stick as long as input is not away from the wall (Probably use movement.MoveDirection)
-        // otherwise if we want to move away from the wall push off wall
-
-        
-
-        float angle = Vector3.Angle(movement.MoveDirection, dirToWall);
-        //Debug.LogWarning(Mathf.Round(angle));
-
-        if (angle <= 150)
-            rb.AddForce(dirToWall * config.WALL_STICKINESS, ForceMode.Force);
-        else if (isWallRunning && movement.MoveInput != Vector2.zero)
-            Cancel();
-
-        if (movement.MoveInput.y <= .25f)
+        // 2) If stick is okay and push-up input is held, keep y=0. Otherwise, slip down:
+        if (movement.MoveInput.y > 0.25f)
         {
-            rb.AddForce(FlowPhysics.Instance.GravityDirection * config.WALL_SLIP_SPEED, ForceMode.Force);
-            //Debug.LogWarning("Slipping");
+            // Zero vertical so they remain perfectly horizontal:
+            Vector3 v = rb.linearVelocity;
+            rb.linearVelocity = new Vector3(v.x, 0f, v.z);
         }
         else
         {
-            rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+            // Apply a downward force so they slide:
+            Vector3 downForce = FlowPhysics.Instance.GravityDirection * config.WALL_SLIP_SPEED;
+            rb.AddForce(downForce, ForceMode.Force);
         }
     }
 
+    // Called to forcibly end the wall run:
     public void Cancel()
     {
-        // Cancel logic here
+        if (!isWallRunning) 
+            return;
+
         isWallRunning = false;
         config.IsActive = false;
+
+        // Re-enable gravity so they’ll fall
         rb.useGravity = true;
 
+        // Record when this ended, for cooldown logic:
         timeSinceLastWallRun = Time.time;
+
         movement.RemoveRestraint(this);
+
+        CameraTilt.Instance.ResetTilt();
     }
 
-    private bool IsNotSideWall()
+    // “Am I on a side wall (Left or Right) AND pushing into it at ≤ MAX_WALL_ANGLE?”
+    private bool IsFacingWall()
     {
-        return movement.wallDirection != WallDirection.Left && movement.wallDirection != WallDirection.Right;
+        if (movement.wallDirection != WallDirection.Left &&
+            movement.wallDirection != WallDirection.Right)
+        {
+            return false;
+        }
+
+        // Compute angle between player input dir and wall normal
+        Vector3 dirToWall = -movement.wallHit.normal;
+        float currentAngle = Vector3.Angle(movement.MoveDirection, dirToWall);
+        return (currentAngle < config.MAX_WALL_ANGLE);
     }
 }

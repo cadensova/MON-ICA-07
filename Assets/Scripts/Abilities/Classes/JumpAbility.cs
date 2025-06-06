@@ -12,7 +12,6 @@ public class JumpAbility : IAbility
     private float lastJumpTime = 0f;
 
     private bool isJumping;
-    private bool didEarlyRelease;
     private bool hasLeftGround;
 
     public void Initialize(GameObject owner, Object cfg = null)
@@ -32,9 +31,6 @@ public class JumpAbility : IAbility
         movement = owner.GetComponent<PlayerMovement>();
         rb = movement.rb;
 
-        // We listen for crouch “release” only to cancel early if needed
-        movement.input.Jump.OnReleased += OnJumpReleased;
-
         if (rb == null || movement == null)
             Debug.LogError("JumpAbility needs Rigidbody + PlayerMovement on the owner.");
     }
@@ -43,11 +39,13 @@ public class JumpAbility : IAbility
 
     public void TryActivate()
     {
+        if (movement.sm.CurrentSub == PlayerStateMachine.SubState.Dashing || movement.sm.CurrentSub == PlayerStateMachine.SubState.GroundPounding)
+                return;
+
         if (lastJumpTime > Time.time) return;
 
         isJumping = true;
         hasLeftGround = false;
-        didEarlyRelease = false;
         config.IsActive = true;
         lastJumpTime = 0f;
 
@@ -61,8 +59,6 @@ public class JumpAbility : IAbility
     public void Tick() { }
     public void FixedTick()
     {
-        ApplyFastFallModifier();
-
         if (!hasLeftGround)
         {
             if (!movement.IsGrounded)
@@ -79,45 +75,5 @@ public class JumpAbility : IAbility
     {
         isJumping = false;
         config.IsActive = false;
-
-        if (didEarlyRelease)
-        {
-            // Make Player Reset fall multi when they land i guess
-        }
-    }
-
-
-    private void OnJumpReleased()
-    {
-        // only if we're still moving up
-        if (rb.linearVelocity.y > 0f)
-        {
-            // cut that upward velocity for a low jump
-            rb.linearVelocity = new Vector3(
-                rb.linearVelocity.x,
-                rb.linearVelocity.y / config.LOW_JUMP_MULTI,
-                rb.linearVelocity.z
-            );
-            didEarlyRelease = true;
-        }
-    }
-    
-    private void ApplyFastFallModifier()
-    {
-        // when in air, already falling, and we did an early release
-        if (!movement.IsGrounded
-            && movement.sm.CurrentMain == PlayerStateMachine.MainState.Airborne
-            && rb.linearVelocity.y < 0f
-            && didEarlyRelease)
-        {
-            // extra downward force = (fallMultiplier – 1) × normal gravity
-            float extraG = (config.FALL_MULTI - 1f) * FlowPhysics.Instance.GravityStrength;
-            rb.AddForce(Vector3.down * extraG, ForceMode.Acceleration);
-        }
-        // reset when back on ground
-        else if (movement.IsGrounded && didEarlyRelease)
-        {
-            didEarlyRelease = false;
-        }
     }
 }

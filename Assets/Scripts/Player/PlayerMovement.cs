@@ -63,6 +63,7 @@ public class PlayerMovement : MonoBehaviour
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 5f;
     [SerializeField] private float airControl = 0.5f;
+    [SerializeField] private float airAccel = 5f;
     [SerializeField] private float baseMoveMulti = 5f;
 
 
@@ -249,9 +250,10 @@ public class PlayerMovement : MonoBehaviour
 
         DragControl();
 
-        targetDrag = IsSliding
-            ? slideDragOverride
-            : (IsGrounded ? groundDrag : airDrag);
+        targetDrag = IsGrounded ? groundDrag : airDrag;
+
+        if (sm.CurrentSub == PlayerStateMachine.SubState.Sliding)
+            targetDrag = 0f;
 
         if (sm.CurrentSub == PlayerStateMachine.SubState.Dashing)
             targetDrag = 0f;
@@ -328,12 +330,44 @@ public class PlayerMovement : MonoBehaviour
             IsWalking = false;
     }
 
+
+    private float timeSpentOnGround;
     private void DetermineMaxSpeed()
     {
-        if (IsGrounded)
-            maxAirSpeed = HorizontalVelocity.magnitude;
+        // 1) Figure out what “speed” we want this frame:
+        float targetSpeed = HorizontalVelocity.magnitude;
+
+        // 2) If the character is grounded, we want to compare:
+        if (IsGrounded || sm.CurrentMain == PlayerStateMachine.MainState.WallRunning)
+        {
+            timeSpentOnGround += Time.deltaTime;
+
+            if (timeSpentOnGround <= 0.1f) return;
+
+            // 2a) If they’re actually moving faster than our current cap, snap immediately:
+            if (targetSpeed > maxAirSpeed)
+            {
+                maxAirSpeed = targetSpeed;
+            }
+            
+            if (targetSpeed < maxAirSpeed)
+            {
+                // 2b) Otherwise, “slide” maxAirSpeed down toward the target at airAccel:
+                maxAirSpeed = Mathf.MoveTowards(
+                    maxAirSpeed,
+                    targetSpeed,
+                    airAccel * Time.deltaTime
+                );
+            }
+        }
+        else
+            timeSpentOnGround = 0f;
+
+        // 3) Finally, make sure we never go below minAirSpeed or above MAX_SPEED:
         maxAirSpeed = Mathf.Clamp(maxAirSpeed, minAirSpeed, MAX_SPEED);
     }
+
+    public void SetMaxSpeed(float newAirSpeed) { maxAirSpeed = Mathf.Clamp(newAirSpeed, 0f, MAX_SPEED); }
 
     private void ApplyMovement()
     {
@@ -406,23 +440,6 @@ public class PlayerMovement : MonoBehaviour
             smoothDrag = Mathf.MoveTowards(smoothDrag, targetDrag, dragDecel * Time.deltaTime);
 
         rb.linearDamping = smoothDrag;
-    }
-
-    public void StartSlide()
-    {
-        if (IsSliding) return;
-        IsSliding = true;
-    }
-
-    public void StopSlide()
-    {
-        if (!IsSliding) return;
-        IsSliding = false;
-
-        if (input.Crouch.IsPressed)
-            IsCrouching = true;
-        else
-            IsCrouching = false;
     }
 
     public void AddRestraint(object restraint)

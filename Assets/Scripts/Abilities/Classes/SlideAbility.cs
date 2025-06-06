@@ -91,7 +91,6 @@ public class SlideAbility : IAbility
         slideDirection = movement.MoveDirection;
 
         // Let PlayerMovement handle drag/etc.
-        movement.StartSlide();
         movement.AddRestraint(this);
 
         // Shrink both scale and collider
@@ -210,7 +209,6 @@ public class SlideAbility : IAbility
         config.IsActive = false;
 
         movement.RemoveRestraint(this);
-        movement.StopSlide();
 
         // Grow back both scale & collider
         movement.StartCoroutine(ChangeSize(false));

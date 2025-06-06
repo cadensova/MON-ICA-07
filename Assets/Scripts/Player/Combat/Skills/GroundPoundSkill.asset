@@ -15,9 +15,10 @@ MonoBehaviour:
   boundButton: 2
   requiredMainState: 4
   requiredSubState: 0
-  minHeight: 5
+  minHeight: 10
   slamSpeed: 45
-  bounceForce: 10
+  bounceUpwardsForce: 20
+  bounceMovementForce: 35
   config: {fileID: 11400000, guid: 58a193315cb434b40b27ace075d21388, type: 2}
   groundLayer:
     serializedVersion: 2

@@ -17,14 +17,15 @@ public class DashSkill : PlayerSkill
 
     [Header("Conclusion Settings")]
     [SerializeField] private float minDis = 1f;
+    [SerializeField] private float jumpForce = 25f;
 
     private Transform cameraTransform;
     private Transform dashTarget;
 
     private bool subbed = false;
-    private bool inputPressed = false;
+    private bool dashButtonPressed = false;
     private float lastDashTime = 0f;
-    private bool gotClose;
+    private bool jumpButtonPressed = false;
 
     private void OnEnable()
     {
@@ -32,7 +33,6 @@ public class DashSkill : PlayerSkill
             cameraTransform = Camera.main.transform;
 
         IsActive = false;
-        gotClose = false;
         lastDashTime = 0f;
     }
 
@@ -48,6 +48,7 @@ public class DashSkill : PlayerSkill
         if (!subbed && skillInputButton != null)
         {
             skillInputButton.OnPressed += OnDashPressed;
+            InputProvider.Instance.Jump.OnPressed += OnPlayerJump;
             subbed = true;
         }
 
@@ -60,9 +61,9 @@ public class DashSkill : PlayerSkill
 
             // 3) Only start a dash if (a) the button was pressed, (b) we’re not already active,
             // (c) the cooldown has expired:
-            if (inputPressed && !IsActive)
+            if (dashButtonPressed && !IsActive)
             {
-                inputPressed = false;    // consume the press
+                dashButtonPressed = false;    // consume the press
                 IsActive = true;
                 //Debug.Log("Started Dash");
                 combat.StartCoroutine(HandleDashingLogic(dashTarget.GetComponent<Rigidbody>()));
@@ -77,10 +78,20 @@ public class DashSkill : PlayerSkill
 
     private void OnDashPressed()
     {
+        if (dashTarget == null) return;
+
         // Called once by the input‐system when the dash button is pressed
-        inputPressed = true;
+        dashButtonPressed = true;
     }
 
+    private void OnPlayerJump()
+    {
+        if (!IsActive) return;
+
+        jumpButtonPressed = true;
+    }
+
+    RaycastHit bestHit = new RaycastHit();
     public RaycastHit? FindBestHitInFrontOfCamera()
     {
         if (cameraTransform == null) return null;
@@ -101,12 +112,12 @@ public class DashSkill : PlayerSkill
         Camera cam = Camera.main;
         Vector2 screenCenter = new Vector2(0.5f, 0.5f);
         float bestDist = Mathf.Infinity;
-        RaycastHit bestHit = new RaycastHit();
+        bestHit = new RaycastHit();
 
         foreach (var hit in hits)
         {
             Vector3 vp = cam.WorldToViewportPoint(hit.point);
-            if (vp.z < 0f) 
+            if (vp.z < 0f)
                 continue;
 
             float d = Vector2.Distance(new Vector2(vp.x, vp.y), screenCenter);
@@ -117,7 +128,7 @@ public class DashSkill : PlayerSkill
             }
         }
 
-        if (bestDist == Mathf.Infinity) 
+        if (bestDist == Mathf.Infinity)
             return null;
 
         return bestHit;
@@ -147,13 +158,7 @@ public class DashSkill : PlayerSkill
 
             float currentDist = Vector3.Distance(dashTarget.position, userGO.transform.position);
 
-            if (currentDist <= minDis)
-            {
-                Debug.Log("Got Close!");
-                gotClose = true;
-            }
-
-            return (gotClose || currentDist > dashDetectRange + 5f);
+            return (currentDist <= minDis || currentDist > dashDetectRange + 5f);
         });
 
         StopDash(targetRB);
@@ -169,7 +174,7 @@ public class DashSkill : PlayerSkill
 
         // 4) Reset flags & start cooldown
         lastDashTime = Time.time + dashCooldown;
-        inputPressed = false;
+        dashButtonPressed = false;
         IsActive = false;
         dashTarget = null;
 
@@ -178,11 +183,17 @@ public class DashSkill : PlayerSkill
         targetRB.isKinematic = false;
         float dis = Vector3.Distance(targetRB.transform.position, userGO.transform.position);
         // 5) Apply knockback to the target if it still exists
-        if (targetRB != null && dis <= 5f)
+        if (targetRB != null && dis <= 5f && !jumpButtonPressed)
         {
             // Knock it in the direction the player is facing
             targetRB.AddForce(cameraTransform.forward * knockbackForce, ForceMode.Impulse);
-            gotClose = false;
+        }
+        else if (jumpButtonPressed && targetRB != null)
+        {
+            Debug.Log("Jumped");
+            rb.AddForce((-FlowPhysics.Instance.GravityDirection + movement.MoveDirection) * jumpForce, ForceMode.Impulse);
+
+            jumpButtonPressed = false;
         }
         else Debug.LogWarning(dis);
 
@@ -196,8 +207,8 @@ public class DashSkill : PlayerSkill
             skillInputButton.OnPressed -= OnDashPressed;
 
         subbed = false;
-        gotClose = false;
-        inputPressed = false;
+        dashButtonPressed = false;
+        jumpButtonPressed = false;
         lastDashTime = 0f;
     }
 }
